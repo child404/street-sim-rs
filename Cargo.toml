@@ -22,6 +22,7 @@ harness = false # TODO: figure out this parameter
 
 [dependencies]
 strsim = "0.10.0"
+threadpool = "1.8.1"
 
 [dev-dependencies]
 pretty_assertions = "1.3.0"

@@ -7,8 +7,8 @@ use std::{
     io::{self, prelude::*, BufReader},
     path::PathBuf,
     sync::{Arc, Mutex},
-    thread,
 };
+use threadpool::ThreadPool;
 
 pub struct TextMatcher {
     sensitivity: f64,
@@ -45,32 +45,26 @@ impl TextMatcher {
         num_of_threads: Option<usize>,
     ) -> Vec<Candidate> {
         let matches: Arc<Mutex<Vec<Candidate>>> = Arc::new(Mutex::new(Vec::new()));
-        let files: Vec<PathBuf> = fs::read_dir(path_to_dir)
+        let pool = ThreadPool::new(num_of_threads.unwrap_or(2));
+
+        for file in fs::read_dir(path_to_dir)
             .expect("Directory exists")
             .flatten()
-            .map(|x| x.path())
-            .collect();
-        let num_of_threads = num_of_threads.unwrap_or(2);
-        let mut threads = Vec::with_capacity(num_of_threads);
-        for chunk in files.chunks((files.len() as f64 / num_of_threads as f64).ceil() as usize) {
-            let txt = txt.to_string();
-            let files: Vec<PathBuf> = chunk.to_vec();
+        {
+            let text = txt.to_string();
             let matches = matches.clone();
-            let thread_ = thread::spawn(move || {
-                let text_matcher = TextMatcher::new(sens, keep);
-                for f in files {
-                    if let Ok(candidates) = text_matcher.find_matches(&txt, &f) {
-                        for candidate in candidates {
-                            matches.lock().unwrap().push(candidate);
-                        }
+            pool.execute(move || {
+                if let Ok(candidates) =
+                    TextMatcher::new(sens, keep).find_matches(&text, &file.path())
+                {
+                    for candidate in candidates {
+                        matches.lock().unwrap().push(candidate);
                     }
                 }
             });
-            threads.push(thread_);
         }
-        for thread in threads {
-            thread.join().expect("Undefined error with thread");
-        }
+        pool.join();
+
         let mut matches = matches.lock().unwrap().to_vec();
         matches.sort_by(|lhs, rhs| rhs.partial_cmp(lhs).unwrap());
         matches[..cmp::min(keep, matches.len())].to_vec()

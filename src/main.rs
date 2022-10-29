@@ -12,6 +12,6 @@ fn main() {
 
     let path_to_candidates = PathBuf::from_str("./test_data/plzs/").unwrap();
     let text = "qu du seujet 36";
-    let matches_ = TextMatcher::find_matches_in_dir(0.8, 50, text, path_to_candidates, Some(8));
-    println!("{:?}", matches_);
+    let matches = TextMatcher::find_matches_in_dir(0.8, 50, text, path_to_candidates, Some(8));
+    println!("{:?}", matches);
 }
