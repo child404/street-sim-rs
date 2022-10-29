@@ -1,0 +1,28 @@
+[package]
+name = "text-matcher-rs"
+version = "0.1.0"
+authors = ["child404 <vladrez1703@gmail.com>"]
+edition = "2021"
+license = "MIT"
+keywords = ["text-matcher-rs", "tm-rs"]
+readme = "README.md"
+repository = "https://github.com/child404/text-matcher-rs"
+
+[lib]
+name = "text_matcher_rs"
+path = "src/lib.rs"
+
+[[bin]]
+name = "text_matcher_rs"
+path = "src/main.rs"
+
+[[bench]]
+name = "tm_rs_bench"
+harness = false # TODO: figure out this parameter
+
+[dependencies]
+strsim = "0.10.0"
+
+[dev-dependencies]
+pretty_assertions = "1.3.0"
+# criterion = "0.4.0"
