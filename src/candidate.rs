@@ -3,7 +3,7 @@ use std::{
     path::PathBuf,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Candidate {
     pub text: String,
     pub similarity: f64,
