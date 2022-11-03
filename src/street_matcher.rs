@@ -6,10 +6,18 @@ use std::{
     str::FromStr,
 };
 
+const SENSITIVITY: f64 = 0.6;
+const FILE_SENSITIVITY: f64 = 0.87;
+const PLACE_SEARCH_SENSITIVITY: f64 = 0.7;
+const KEEP: usize = 50;
+const PATH_TO_PLACES: &str = "./test_data/places.txt";
+const PATH_TO_PLZS_DIR: &str = "./test_data/plzs/";
+const PATH_TO_PLACES_DIR: &str = "./test_data/places/";
+
 #[derive(Debug)]
 pub struct MatchedStreet {
-    street: Option<String>,
-    file_found: Option<PathBuf>,
+    pub street: Option<String>,
+    pub file_found: Option<PathBuf>,
 }
 
 fn does_start_with_number(street: &str) -> bool {
@@ -52,14 +60,6 @@ pub struct StreetMatcher {
 }
 
 impl StreetMatcher {
-    const SENSITIVITY: f64 = 0.6;
-    const FILE_SENSITIVITY: f64 = 0.87;
-    const PLACE_SEARCH_SENSITIVITY: f64 = 0.7;
-    const KEEP: usize = 50;
-    const PATH_TO_PLACES: &str = "./test_data/places.txt";
-    const PATH_TO_PLZS_DIR: &str = "./test_data/plzs/";
-    const PATH_TO_PLACES_DIR: &str = "./test_data/places/";
-
     pub fn new(street: &str, sens: Option<f64>, file_sens: Option<f64>) -> Self {
         if !does_contain_numbers(street) {
             panic!(
@@ -69,15 +69,15 @@ impl StreetMatcher {
         }
         Self {
             street: clean_street(street),
-            sensitivity: sens.unwrap_or(StreetMatcher::SENSITIVITY),
-            file_sensitivity: file_sens.unwrap_or(StreetMatcher::FILE_SENSITIVITY),
+            sensitivity: sens.unwrap_or(SENSITIVITY),
+            file_sensitivity: file_sens.unwrap_or(FILE_SENSITIVITY),
         }
     }
 
     fn _find_matches_in_dir(&self, dir: &Path, is_first_letters_eq: bool) -> Vec<Candidate> {
         TextMatcher::find_matches_in_dir(
             self.sensitivity,
-            StreetMatcher::KEEP,
+            KEEP,
             &self.street,
             dir.to_path_buf(),
             None,
@@ -88,7 +88,6 @@ impl StreetMatcher {
     fn _search_in_dir(&self, dir: &Path, file_candidate: Option<PathBuf>) -> MatchedStreet {
         let mut mat = self._find_matches_in_dir(dir, true);
         if mat.is_empty() {
-            println!("Not found with first letter eq");
             mat = self._find_matches_in_dir(dir, false);
         }
         let best_match = if !mat.is_empty() {
@@ -121,7 +120,7 @@ impl StreetMatcher {
     fn _find_matches(&self, dir: &Path, file: Option<PathBuf>) -> MatchedStreet {
         file.map_or_else(
             || self._search_in_dir(dir, None),
-            |file| match TextMatcher::new(self.file_sensitivity, StreetMatcher::KEEP, false)
+            |file| match TextMatcher::new(self.file_sensitivity, KEEP, false)
                 .find_matches_in_file(&self.street, &file)
             {
                 Ok(mat) if !mat.is_empty() => MatchedStreet {
@@ -135,35 +134,26 @@ impl StreetMatcher {
 
     pub fn match_by_plz(&self, plz: Option<usize>) -> MatchedStreet {
         self._find_matches(
-            &PathBuf::from(StreetMatcher::PATH_TO_PLZS_DIR),
-            plz.map(|plz| PathBuf::from(format!("{}{}", StreetMatcher::PATH_TO_PLZS_DIR, plz))),
+            &PathBuf::from(PATH_TO_PLZS_DIR),
+            plz.map(|plz| PathBuf::from(format!("{}{}", PATH_TO_PLZS_DIR, plz))),
         )
     }
 
     pub fn match_by_place(&self, place: Option<&str>) -> MatchedStreet {
         self._find_matches(
-            &PathBuf::from(StreetMatcher::PATH_TO_PLACES_DIR),
+            &PathBuf::from(PATH_TO_PLACES_DIR),
             place.and_then(|place| {
                 StreetMatcher::_match_place(place).map(|candidate| {
-                    PathBuf::from(format!(
-                        "{}{}",
-                        StreetMatcher::PATH_TO_PLACES_DIR,
-                        candidate.text
-                    ))
+                    PathBuf::from(format!("{}{}", PATH_TO_PLACES_DIR, candidate.text))
                 })
             }),
         )
     }
 
     fn _match_place(place: &str) -> Option<Candidate> {
-        let ms = TextMatcher::new(
-            StreetMatcher::PLACE_SEARCH_SENSITIVITY,
-            StreetMatcher::KEEP,
-            false,
-        )
-        .find_matches_in_file(
+        let ms = TextMatcher::new(PLACE_SEARCH_SENSITIVITY, KEEP, false).find_matches_in_file(
             place,
-            &PathBuf::from_str(StreetMatcher::PATH_TO_PLACES).expect("places.txt file exists"),
+            &PathBuf::from_str(PATH_TO_PLACES).expect("places.txt file exists"),
         );
         if let Ok(candidates) = ms {
             if !candidates.is_empty() {

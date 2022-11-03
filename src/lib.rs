@@ -13,8 +13,8 @@ mod tests {
     use crate::TextMatcher;
     use pretty_assertions::assert_eq;
 
-    const DATA_FILE: &str = "./plzs/1201";
-    const DATA_DIR: &str = "./data/";
+    const DATA_FILE: &str = "./test_data/plzs/1201";
+    const DATA_DIR: &str = "./test_data/plzs/";
 
     #[test]
     fn high_sensitivity() {
