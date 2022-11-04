@@ -8,34 +8,79 @@ pub use text_matcher::TextMatcher;
 
 #[cfg(test)]
 mod tests {
-    use std::{path::PathBuf, str::FromStr};
-
-    use crate::TextMatcher;
+    use crate::{StreetMatcher, TextMatcher};
     use pretty_assertions::assert_eq;
+    use std::{path::PathBuf, str::FromStr};
 
     const DATA_FILE: &str = "./test_data/plzs/1201";
     const DATA_DIR: &str = "./test_data/plzs/";
 
     #[test]
-    fn high_sensitivity() {
-        let matcher = TextMatcher::new(0.99, 5, true);
-        let matches = matcher
+    fn street_matcher_with_plz() {
+        let mat = StreetMatcher::new("qu du seujet 36", None, None).match_by_plz(Some(1201));
+        assert_eq!(mat.street.unwrap(), String::from("quai du seujet 36"));
+        assert_eq!(
+            mat.file_found.unwrap(),
+            PathBuf::from("./test_data/plzs/1201")
+        );
+    }
+
+    #[test]
+    fn street_matcher_no_plz() {
+        let mat = StreetMatcher::new("qu du seujet 36", None, None).match_by_plz(None);
+        assert_eq!(mat.street.unwrap(), String::from("quai du seujet 36"));
+        assert_eq!(mat.file_found, None)
+    }
+
+    #[test]
+    fn street_matcher_wrong_plz() {
+        let mat = StreetMatcher::new("qu du seujet 36", None, None).match_by_plz(Some(1231231));
+        assert_eq!(mat.street.unwrap(), String::from("quai du seujet 36"));
+        assert_eq!(mat.file_found, None)
+    }
+
+    #[test]
+    fn street_matcher_wrong_first_word() {
+        let mat = StreetMatcher::new("u du seujet 36", None, None).match_by_plz(Some(1201));
+        assert_eq!(mat.street.unwrap(), String::from("quai du seujet 36"));
+        assert_eq!(
+            mat.file_found.unwrap(),
+            PathBuf::from("./test_data/plzs/1201")
+        )
+    }
+
+    #[test]
+    fn street_matcher_wrong_first_word_no_plz() {
+        let mat = StreetMatcher::new("u du seujet 36", None, None).match_by_plz(None);
+        assert_eq!(mat.street.unwrap(), String::from("quai du seujet 36"));
+        assert_eq!(mat.file_found, None)
+    }
+
+    #[test]
+    fn street_matcher_wrong_first_word_wrong_plz() {
+        let mat = StreetMatcher::new("u du seujet 36", None, None).match_by_plz(Some(2132131));
+        assert_eq!(mat.street.unwrap(), String::from("quai du seujet 36"));
+        assert_eq!(mat.file_found, None)
+    }
+
+    #[test]
+    fn text_matcher_high_sensitivity() {
+        let matches = TextMatcher::new(0.99, 5, true)
             .find_matches_in_file("qu du seujet 36", &PathBuf::from_str(DATA_FILE).unwrap())
             .unwrap();
         assert_eq!(matches.len(), 0);
     }
 
     #[test]
-    fn zero_to_keep() {
-        let matcher = TextMatcher::new(0.7, 0, true);
-        let matches = matcher
+    fn text_matcher_zero_to_keep() {
+        let matches = TextMatcher::new(0.7, 0, true)
             .find_matches_in_file("qu du seujet 36", &PathBuf::from_str(DATA_FILE).unwrap())
             .unwrap();
         assert_eq!(matches.len(), 0);
     }
 
     #[test]
-    fn nomal_sensitivity() {
+    fn text_matcher_nomal_sensitivity() {
         let matcher = TextMatcher::new(0.7, 5, true);
         let matches = matcher
             .find_matches_in_file("qu du seujet 36", &PathBuf::from_str(DATA_FILE).unwrap())
@@ -45,8 +90,8 @@ mod tests {
     }
 
     #[test]
-    fn multiple_files() {
-        let matches = crate::text_matcher::TextMatcher::find_matches_in_dir(
+    fn text_matcher_multiple_files() {
+        let matches = TextMatcher::find_matches_in_dir(
             0.1,
             5,
             "qu du seujet 36",
