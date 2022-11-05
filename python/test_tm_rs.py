@@ -1,7 +1,7 @@
-import pytest
 import multiprocessing
-from test_matcher_rs import TextMatcher
 
+import pytest
+from test_matcher_rs import TextMatcher
 
 DATA_DIR = "./test_data/plzs"
 
