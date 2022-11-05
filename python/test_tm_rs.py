@@ -1,9 +1,9 @@
 import pytest
 import multiprocessing
-from test_matcher_rs import TextMatcher, find_matches_in_dir
+from test_matcher_rs import TextMatcher
 
 
-DATA_DIR = "./plzs"
+DATA_DIR = "./test_data/plzs"
 
 
 def assert_expected_match(matcher: TextMatcher, text: str, expected: str):
@@ -81,7 +81,7 @@ def test_different_files(candidates_file: str, text: str, expected: str):
     ],
 )
 def test_multiple_files(text: str, expected: str):
-    matches = find_matches_in_dir(
+    matches = TextMatcher.find_matches_in_dir(
         sens=0.1,
         keep=1,
         text=text,
@@ -105,15 +105,3 @@ def test_zero_to_keep():
 def test_normal_sensitivity():
     matcher = TextMatcher(0.7, 5, f"{DATA_DIR}/1201")
     assert matcher.find_matches("qu du seujet 36")[0].text == "quai du seujet 36"
-
-
-if __name__ == "__main__":
-    matcher = TextMatcher(0.7, 50, f"{DATA_DIR}/1201")
-    matcher.find_matches("qu du seujet 36")
-    # matches = find_matches_in_dir(
-    #     sens=0.1,
-    #     keep=50,
-    #     text="qu du seujet 36",
-    #     path_to_dir=DATA_DIR,
-    #     num_of_threads=multiprocessing.cpu_count(),
-    # )
