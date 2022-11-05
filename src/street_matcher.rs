@@ -62,6 +62,16 @@ impl StreetMatcher {
     /// StreetMatcher constructor gives possibility to finetune the matching process
     /// by setting custom sensitivity and file_sensitivity values (each from 0.0 - keep all matches, to 1.0 - keep only direct matches).
     /// However, it's recommended to keep default values, i.e. sensitivity == 0.6 - dir seacrh, and file_sensitivity == 0.87 - file search
+    ///
+    /// ```rust
+    /// # use text_matcher_rs::StreetMatcher;
+    /// #
+    /// # fn main() {
+    /// #     let sm = StreetMatcher::new(None, None);
+    /// #     assert_eq!(sm.match_by_plz("qu du seujet 36", Some(1201)).street.unwrap(), "quai du seujet 36".to_string());
+    /// #     assert_eq!(sm.match_by_place("aarstr. 76", Some("Bern")).street.unwrap(), "aarstrasse 76".to_string());
+    /// #}
+    /// ```
     pub fn new(sensitivity: Option<f64>, file_sensitivity: Option<f64>) -> Self {
         Self {
             sensitivity: sensitivity.unwrap_or(SENSITIVITY),
@@ -151,8 +161,8 @@ impl StreetMatcher {
     /// # use text_matcher_rs::StreetMatcher;
     /// #
     /// # fn main() {
-    /// #     let sm = StreetMatcher::new(None, None);
-    /// #     assert_eq!(sm.match_by_plz("qu du seujet 36", Some(1201)).street.unwrap(), "quai du seujet 36".to_string());
+    /// #     let mat = StreetMatcher::new(None, None).match_by_plz("qu du seujet 36", Some(1201));
+    /// #     assert_eq!(mat.street.unwrap(), "quai du seujet 36".to_string());
     /// #}
     /// ```
     ///
@@ -178,8 +188,8 @@ impl StreetMatcher {
     /// # use text_matcher_rs::StreetMatcher;
     /// #
     /// # fn main() {
-    /// #     let sm = StreetMatcher::new(None, None);
-    /// #     assert_eq!(sm.match_by_place("aarstr. 76", Some("Bern")).street.unwrap(), "aarstrasse 76".to_string());
+    /// #     let mat = StreetMatcher::new(None, None).match_by_place("aarstr. 76", Some("Bern"));
+    /// #     assert_eq!(mat.street.unwrap(), "aarstrasse 76".to_string());
     /// #}
     /// ```
     ///

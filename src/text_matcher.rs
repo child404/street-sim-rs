@@ -1,5 +1,3 @@
-// or rayon https://docs.rs/rayon/1.3.1/rayon/
-// or next article: https://users.rust-lang.org/t/using-threads-or-async-faster-file-reading/45736
 use crate::candidate::Candidate;
 use std::{
     cmp,
@@ -22,6 +20,20 @@ impl TextMatcher {
         Self { sensitivity, keep }
     }
 
+    /// Search through file for candidates each on new line
+    ///
+    /// ```rust
+    /// # use text_matcher_rs::TextMatcher;
+    /// #
+    /// # fn main() {
+    /// #     let mat = TextMatcher::new(0.8, 1).find_matches_in_file("qu du seujet 36", "./test_data/plzs/1201", None).unwrap();
+    /// #     assert_eq!(mat[0].text, "quai du seujet 36".to_string())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// If this function encounteres any problem with readiing the file, an error variant will be returned
     pub fn find_matches_in_file(
         &self,
         text: &str,
@@ -51,6 +63,16 @@ impl TextMatcher {
         Ok(candidates[..cmp::min(self.keep, candidates.len())].to_vec())
     }
 
+    /// Search through files in directory for candidates each on new line
+    ///
+    /// ```rust
+    /// # use text_matcher_rs::TextMatcher;
+    /// #
+    /// # fn main() {
+    /// #     let mat = TextMatcher::find_matches_in_dir(0.8, 1, "qu du seujet 36", PathBuf::from("./test_data/plzs/"), None, None);
+    /// #     assert_eq!(mat[0].text, "quai du seujet 36".to_string())
+    /// # }
+    /// ```
     pub fn find_matches_in_dir(
         sens: f64,
         keep: usize,
