@@ -15,29 +15,30 @@ use unicode_segmentation::UnicodeSegmentation;
 pub struct TextMatcher {
     sensitivity: f64,
     keep: usize,
-    is_first_let_eq: bool,
 }
 
 impl TextMatcher {
-    pub fn new(sensitivity: f64, keep: usize, is_first_let_eq: bool) -> Self {
-        Self {
-            sensitivity,
-            keep,
-            is_first_let_eq,
-        }
+    pub fn new(sensitivity: f64, keep: usize) -> Self {
+        Self { sensitivity, keep }
     }
 
-    pub fn find_matches_in_file(&self, txt: &str, file: &PathBuf) -> io::Result<Vec<Candidate>> {
+    pub fn find_matches_in_file(
+        &self,
+        text: &str,
+        file: &PathBuf,
+        is_first_let_eq: Option<bool>,
+    ) -> io::Result<Vec<Candidate>> {
         let mut candidates = Vec::new(); // try to use .clear() here with &mut TextMatcher
         let reader = BufReader::new(File::open(file)?);
+        let is_first_let_eq = is_first_let_eq.unwrap_or(false);
         for candidate_txt in reader.lines().flatten() {
-            if self.is_first_let_eq
-                && txt.graphemes(true).next().unwrap()
+            if is_first_let_eq
+                && text.graphemes(true).next().unwrap()
                     != candidate_txt.graphemes(true).next().unwrap()
             {
                 continue;
             }
-            let similarity = strsim::normalized_levenshtein(txt, &candidate_txt);
+            let similarity = strsim::normalized_levenshtein(text, &candidate_txt);
             if similarity - self.sensitivity > 0.0 {
                 candidates.push(Candidate {
                     text: candidate_txt,
@@ -53,10 +54,10 @@ impl TextMatcher {
     pub fn find_matches_in_dir(
         sens: f64,
         keep: usize,
-        txt: &str,
+        text: &str,
         path_to_dir: PathBuf,
         num_of_threads: Option<usize>,
-        is_first_let_eq: bool,
+        is_first_let_eq: Option<bool>,
     ) -> Vec<Candidate> {
         let matches: Arc<Mutex<Vec<Candidate>>> = Arc::new(Mutex::new(Vec::new()));
         let pool = ThreadPool::new(
@@ -67,11 +68,13 @@ impl TextMatcher {
             .expect("Directory exists")
             .flatten()
         {
-            let text = txt.to_string();
+            let text = text.to_string();
             let matches = matches.clone();
-            let matcher = TextMatcher::new(sens, keep, is_first_let_eq);
+            let matcher = TextMatcher::new(sens, keep);
             pool.execute(move || {
-                if let Ok(candidates) = matcher.find_matches_in_file(&text, &file.path()) {
+                if let Ok(candidates) =
+                    matcher.find_matches_in_file(&text, &file.path(), is_first_let_eq)
+                {
                     for candidate in candidates {
                         matches.lock().unwrap().push(candidate);
                     }

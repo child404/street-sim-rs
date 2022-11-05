@@ -54,48 +54,46 @@ fn does_contain_numbers(street: &str) -> bool {
 }
 
 pub struct StreetMatcher {
-    pub street: String,
     pub sensitivity: f64,
     pub file_sensitivity: f64,
 }
 
 impl StreetMatcher {
     /// StreetMatcher constructor gives possibility to finetune the matching process
-    /// by setting custom sensitivity and file_sensitivity values (each from 0.0 - keep all matches to 1.0 - keep only direct matches).
+    /// by setting custom sensitivity and file_sensitivity values (each from 0.0 - keep all matches, to 1.0 - keep only direct matches).
     /// However, it's recommended to keep default values, i.e. sensitivity == 0.6 - dir seacrh, and file_sensitivity == 0.87 - file search
-    ///
-    /// # Panics
-    ///
-    /// Panics if `street` does not contain a number (as each valid street MUST contain an any number)
-    pub fn new(street: &str, sensitivity: Option<f64>, file_sensitivity: Option<f64>) -> Self {
-        if !does_contain_numbers(street) {
-            panic!(
-                "Argument 'street' must contain street number! Got: '{}'",
-                street
-            );
-        }
+    pub fn new(sensitivity: Option<f64>, file_sensitivity: Option<f64>) -> Self {
         Self {
-            street: clean_street(street),
             sensitivity: sensitivity.unwrap_or(SENSITIVITY),
             file_sensitivity: file_sensitivity.unwrap_or(FILE_SENSITIVITY),
         }
     }
 
-    fn _find_matches_in_dir(&self, dir: &Path, is_first_letters_eq: bool) -> Vec<Candidate> {
+    fn _find_matches_in_dir(
+        &self,
+        street: &str,
+        dir: &Path,
+        is_first_letters_eq: bool,
+    ) -> Vec<Candidate> {
         TextMatcher::find_matches_in_dir(
             self.sensitivity,
             KEEP,
-            &self.street,
+            street,
             dir.to_path_buf(),
             None,
-            is_first_letters_eq,
+            Some(is_first_letters_eq),
         )
     }
 
-    fn _search_in_dir(&self, dir: &Path, file_cand: Option<PathBuf>) -> MatchedStreet {
-        let mut mat = self._find_matches_in_dir(dir, true);
+    fn _search_in_dir(
+        &self,
+        street: &str,
+        dir: &Path,
+        file_cand: Option<PathBuf>,
+    ) -> MatchedStreet {
+        let mut mat = self._find_matches_in_dir(street, dir, true);
         if mat.is_empty() {
-            mat = self._find_matches_in_dir(dir, false);
+            mat = self._find_matches_in_dir(street, dir, false);
         }
         if !mat.is_empty() {
             MatchedStreet {
@@ -120,17 +118,24 @@ impl StreetMatcher {
         }
     }
 
-    fn _find_matches(&self, dir: &Path, file: Option<PathBuf>) -> MatchedStreet {
+    fn _find_matches(&self, street: &str, dir: &Path, file: Option<PathBuf>) -> MatchedStreet {
+        if !does_contain_numbers(street) {
+            panic!(
+                "Argument 'street' must contain street number! Got: '{}'",
+                street
+            );
+        }
+        let street = &clean_street(street);
         file.map_or_else(
-            || self._search_in_dir(dir, None),
-            |file| match TextMatcher::new(self.file_sensitivity, KEEP, false)
-                .find_matches_in_file(&self.street, &file)
+            || self._search_in_dir(street, dir, None),
+            |file| match TextMatcher::new(self.file_sensitivity, KEEP)
+                .find_matches_in_file(street, &file, None)
             {
                 Ok(mat) if !mat.is_empty() => MatchedStreet {
                     street: Some(mat[0].text.clone()),
                     file_found: Some(file),
                 },
-                _ => self._search_in_dir(dir, Some(file)),
+                _ => self._search_in_dir(street, dir, Some(file)),
             },
         )
     }
@@ -146,12 +151,17 @@ impl StreetMatcher {
     /// # use text_matcher_rs::StreetMatcher;
     /// #
     /// # fn main() {
-    /// #     let sm = StreetMatcher::new("qu du seujet 36", None, None);
-    /// #     assert_eq!(sm.match_by_plz(Some(1201)).street.unwrap(), "quai du seujet 36".to_string());
+    /// #     let sm = StreetMatcher::new(None, None);
+    /// #     assert_eq!(sm.match_by_plz("qu du seujet 36", Some(1201)).street.unwrap(), "quai du seujet 36".to_string());
     /// #}
     /// ```
-    pub fn match_by_plz(&self, plz: Option<usize>) -> MatchedStreet {
+    ///
+    /// # Panics
+    ///
+    /// Panics if `street` does not contain a number (as each valid street MUST contain an any number)
+    pub fn match_by_plz(&self, street: &str, plz: Option<usize>) -> MatchedStreet {
         self._find_matches(
+            street,
             &PathBuf::from(PATH_TO_PLZS_DIR),
             plz.map(|plz| PathBuf::from(format!("{}{}", PATH_TO_PLZS_DIR, plz))),
         )
@@ -168,12 +178,17 @@ impl StreetMatcher {
     /// # use text_matcher_rs::StreetMatcher;
     /// #
     /// # fn main() {
-    /// #     let sm = StreetMatcher::new("aarstr. 76", None, None);
-    /// #     assert_eq!(sm.match_by_place(Some("Bern")).street.unwrap(), "aarstrasse 76".to_string());
+    /// #     let sm = StreetMatcher::new(None, None);
+    /// #     assert_eq!(sm.match_by_place("aarstr. 76", Some("Bern")).street.unwrap(), "aarstrasse 76".to_string());
     /// #}
     /// ```
-    pub fn match_by_place(&self, place: Option<&str>) -> MatchedStreet {
+    ///
+    /// # Panics
+    ///
+    /// Panics if `street` does not contain a number (as each valid street MUST contain an any number)
+    pub fn match_by_place(&self, street: &str, place: Option<&str>) -> MatchedStreet {
         self._find_matches(
+            street,
             &PathBuf::from(PATH_TO_PLACES_DIR),
             place.and_then(|place| {
                 StreetMatcher::_match_place(place).map(|candidate| {
@@ -185,9 +200,10 @@ impl StreetMatcher {
 
     fn _match_place(place: &str) -> Option<Candidate> {
         // FIXME: add cast to lowercase here
-        match TextMatcher::new(PLACE_SEARCH_SENSITIVITY, KEEP, false).find_matches_in_file(
+        match TextMatcher::new(PLACE_SEARCH_SENSITIVITY, KEEP).find_matches_in_file(
             &String::from(place).to_lowercase(),
             &PathBuf::from_str(PATH_TO_PLACES).expect("places.txt file exists"),
+            None,
         ) {
             Ok(candidates) if !candidates.is_empty() => Some(candidates[0].clone()),
             _ => None,
