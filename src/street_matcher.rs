@@ -35,7 +35,7 @@ fn clean_street(street: &str) -> String {
             .expect("the string format is correct due to regex");
         street = format!("{} {}", parts.collect::<Vec<&str>>().join(" "), number);
     }
-    // TODO: add punctuation removing
+    // TODO: add punctuation removing after the next regex
     // Matches: eisfeldstrasse 21/23, milchstrasse 2-10a, milchstrasse 2,10a, bernstrasse 7 8
     match Regex::new(r"(.*?\s\d*?\s?\w?)[/,\-\s]")
         .unwrap()
@@ -54,13 +54,20 @@ fn does_contain_numbers(street: &str) -> bool {
 }
 
 pub struct StreetMatcher {
-    street: String,
-    sensitivity: f64,
-    file_sensitivity: f64,
+    pub street: String,
+    pub sensitivity: f64,
+    pub file_sensitivity: f64,
 }
 
 impl StreetMatcher {
-    pub fn new(street: &str, sens: Option<f64>, file_sens: Option<f64>) -> Self {
+    /// StreetMatcher constructor gives possibility to finetune the matching process
+    /// by setting custom sensitivity and file_sensitivity values (each from 0.0 - keep all matches to 1.0 - keep only direct matches).
+    /// However, it's recommended to keep default values, i.e. sensitivity == 0.6 - dir seacrh, and file_sensitivity == 0.87 - file search
+    ///
+    /// # Panics
+    ///
+    /// Panics if `street` does not contain a number (as each valid street MUST contain an any number)
+    pub fn new(street: &str, sensitivity: Option<f64>, file_sensitivity: Option<f64>) -> Self {
         if !does_contain_numbers(street) {
             panic!(
                 "Argument 'street' must contain street number! Got: '{}'",
@@ -69,8 +76,8 @@ impl StreetMatcher {
         }
         Self {
             street: clean_street(street),
-            sensitivity: sens.unwrap_or(SENSITIVITY),
-            file_sensitivity: file_sens.unwrap_or(FILE_SENSITIVITY),
+            sensitivity: sensitivity.unwrap_or(SENSITIVITY),
+            file_sensitivity: file_sensitivity.unwrap_or(FILE_SENSITIVITY),
         }
     }
 
@@ -128,6 +135,21 @@ impl StreetMatcher {
         )
     }
 
+    /// Search for a candidate street(s) to a target street within a Postal Code (`plz`).
+    /// All official street candidates here grouped into files named by a Postal Code.
+    /// `plz` must be a valid Switzerland Postal Code represented officially by government.
+    /// Otherwise, if `plz` did not match any of existings Postal Codes in the directory,
+    /// the search on the WHOLE directory (all files inside a directory) is provided.
+    /// Also, if a candidate was not found within a given `plz`, the same logic (search on all files) is applied.
+    ///
+    /// ```rust
+    /// # use text_matcher_rs::StreetMatcher;
+    /// #
+    /// # fn main() {
+    /// #     let sm = StreetMatcher::new("qu du seujet 36", None, None);
+    /// #     assert_eq!(sm.match_by_plz(Some(1201)).street.unwrap(), "quai du seujet 36".to_string());
+    /// #}
+    /// ```
     pub fn match_by_plz(&self, plz: Option<usize>) -> MatchedStreet {
         self._find_matches(
             &PathBuf::from(PATH_TO_PLZS_DIR),
@@ -135,6 +157,21 @@ impl StreetMatcher {
         )
     }
 
+    /// Search for a candidate street(s) to a target street within a Swiss peace of territory, assigned to the Postal Code (called `place`).
+    /// All official street candidates here grouped into files named by `place`.
+    /// `place` could be an invalid name. In this case, the matcher will try to search for `place` candidate inside a `places.txt` file.
+    /// If `place` did not match any of existings Postal Codes in the directory,
+    /// the search on the WHOLE directory (all files inside a directory) is provided.
+    /// Also, if a candidate was not found within a given `plz`, the same logic (search on all files) is applied.
+    ///
+    /// ```rust
+    /// # use text_matcher_rs::StreetMatcher;
+    /// #
+    /// # fn main() {
+    /// #     let sm = StreetMatcher::new("aarstr. 76", None, None);
+    /// #     assert_eq!(sm.match_by_place(Some("Bern")).street.unwrap(), "aarstrasse 76".to_string());
+    /// #}
+    /// ```
     pub fn match_by_place(&self, place: Option<&str>) -> MatchedStreet {
         self._find_matches(
             &PathBuf::from(PATH_TO_PLACES_DIR),
@@ -147,6 +184,7 @@ impl StreetMatcher {
     }
 
     fn _match_place(place: &str) -> Option<Candidate> {
+        // FIXME: add cast to lowercase here
         match TextMatcher::new(PLACE_SEARCH_SENSITIVITY, KEEP, false).find_matches_in_file(
             &String::from(place).to_lowercase(),
             &PathBuf::from_str(PATH_TO_PLACES).expect("places.txt file exists"),

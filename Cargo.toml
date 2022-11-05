@@ -4,7 +4,9 @@ version = "0.1.0"
 authors = ["child404 <vladrez1703@gmail.com>"]
 edition = "2021"
 license = "MIT"
-keywords = ["text-matcher-rs", "tm-rs"]
+description = "The library to match candidate text (especially Swiss streets) from file input"
+keywords = ["text-matcher-rs", "nlp", "street-processing", "text-processing"]
+categories = ["text-processing"]
 readme = "README.md"
 repository = "https://github.com/child404/text-matcher-rs"
 
@@ -13,7 +15,7 @@ name = "text_matcher_rs"
 path = "src/lib.rs"
 
 [[bin]]
-name = "text_matcher_rs"
+name = "tm_rs"
 path = "src/main.rs"
 
 [[bench]]
