@@ -5,6 +5,6 @@ use crate::street_matcher::StreetMatcher;
 
 fn main() {
     let text = "qu du seujet 36";
-    let sm = StreetMatcher::new(text, None, None);
-    println!("{:?}", sm.match_by_plz(None));
+    let sm = StreetMatcher::new(None, None);
+    println!("{:?}", sm.match_by_plz(text, None));
 }
