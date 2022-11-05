@@ -26,7 +26,7 @@ fn does_start_with_number(street: &str) -> bool {
 }
 
 fn clean_street(street: &str) -> String {
-    let mut street = street.trim().to_string().to_lowercase();
+    let mut street = String::from(street.trim()).to_lowercase();
     // Matches: '76 chemin des clos' or 'a4 résidence du golf'
     if does_start_with_number(&street) {
         let mut parts = street.split_whitespace();
@@ -92,35 +92,31 @@ impl StreetMatcher {
         )
     }
 
-    fn _search_in_dir(&self, dir: &Path, file_candidate: Option<PathBuf>) -> MatchedStreet {
+    fn _search_in_dir(&self, dir: &Path, file_cand: Option<PathBuf>) -> MatchedStreet {
         let mut mat = self._find_matches_in_dir(dir, true);
         if mat.is_empty() {
             mat = self._find_matches_in_dir(dir, false);
         }
-        let best_match = if !mat.is_empty() {
-            Some(mat[0].text.clone())
+        if !mat.is_empty() {
+            MatchedStreet {
+                street: Some(mat[0].text.clone()),
+                file_found: file_cand.and_then(|file_found| {
+                    let potential_cand = Candidate {
+                        file_found,
+                        ..mat[0].clone()
+                    };
+                    if mat.iter().filter(|cand| potential_cand == **cand).count() > 0 {
+                        Some(potential_cand.file_found)
+                    } else {
+                        None
+                    }
+                }),
+            }
         } else {
-            None
-        };
-        MatchedStreet {
-            street: best_match.clone(),
-            file_found: file_candidate.and_then(|file| {
-                if mat
-                    .iter()
-                    .filter(|candidate| {
-                        candidate.file_found == file
-                            && best_match
-                                .as_ref()
-                                .map_or(false, |street| candidate.text == *street)
-                    })
-                    .count()
-                    > 0
-                {
-                    Some(file)
-                } else {
-                    None
-                }
-            }),
+            MatchedStreet {
+                street: None,
+                file_found: None,
+            }
         }
     }
 
@@ -189,15 +185,12 @@ impl StreetMatcher {
 
     fn _match_place(place: &str) -> Option<Candidate> {
         // FIXME: add cast to lowercase here
-        let ms = TextMatcher::new(PLACE_SEARCH_SENSITIVITY, KEEP, false).find_matches_in_file(
-            place,
+        match TextMatcher::new(PLACE_SEARCH_SENSITIVITY, KEEP, false).find_matches_in_file(
+            &String::from(place).to_lowercase(),
             &PathBuf::from_str(PATH_TO_PLACES).expect("places.txt file exists"),
-        );
-        if let Ok(candidates) = ms {
-            if !candidates.is_empty() {
-                return Some(candidates[0].clone());
-            }
+        ) {
+            Ok(candidates) if !candidates.is_empty() => Some(candidates[0].clone()),
+            _ => None,
         }
-        None
     }
 }

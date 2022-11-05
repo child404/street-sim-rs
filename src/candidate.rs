@@ -12,7 +12,7 @@ pub struct Candidate {
 
 impl PartialEq for Candidate {
     fn eq(&self, other: &Self) -> bool {
-        self.text == other.text
+        self.text == other.text && self.file_found == other.file_found
     }
 }
 
