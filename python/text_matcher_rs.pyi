@@ -1,6 +1,5 @@
 from typing import List, Optional
 
-
 class Candidate:
     def __init__(
         self, text: str, candidate_text: str, sensitivity: float, file_found: str
@@ -11,7 +10,6 @@ class Candidate:
     def similarity(self) -> float: ...
     @property
     def file_found(self) -> str: ...
-
 
 class TextMatcher:
     def __init__(self, sensitivity: float, keep: int, path_to_candidates: str): ...
@@ -27,7 +25,6 @@ class TextMatcher:
     def candidates(self) -> Optional[List[str]]: ...
     def set_candidates(self, new_candidates_file: str): ...
     def find_matches(self, text: str) -> List[Candidate]: ...
-
 
 def find_matches_in_dir(
     sens: float, keep: int, text: str, path_to_dir: str, num_of_threads: Optional[int]
