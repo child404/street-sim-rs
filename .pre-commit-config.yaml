@@ -1,4 +1,4 @@
-files: ^python/.*.py|^python/src/.*|^src/.*|.*.yaml|^.github/.*/.*
+files: ^python/.*.py|^python/src/.*.rs|^src/.*.rs|.*.yaml|^.github/.*/.*
 repos:
   - repo: https://github.com/ambv/black
     rev: 22.10.0
