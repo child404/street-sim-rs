@@ -59,6 +59,15 @@ pub struct StreetMatcher {
     pub file_sensitivity: f64,
 }
 
+impl Default for StreetMatcher {
+    fn default() -> Self {
+        Self {
+            sensitivity: SENSITIVITY,
+            file_sensitivity: FILE_SENSITIVITY,
+        }
+    }
+}
+
 impl StreetMatcher {
     /// StreetMatcher constructor gives possibility to finetune the matching process
     /// by setting custom sensitivity and file_sensitivity values (each from 0.0 - keep all matches, to 1.0 - keep only direct matches).

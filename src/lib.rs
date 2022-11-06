@@ -16,8 +16,20 @@ mod tests {
     const DATA_DIR: &str = "./test_data/plzs/";
 
     #[test]
+    fn street_matcher_with_place() {
+        let mat = StreetMatcher::default().match_by_place("ch de saint-cierges 3", Some("bercher"));
+        assert_eq!(mat.street.unwrap(), "chemin de saint-cierges 3".to_string());
+    }
+
+    #[test]
+    fn street_matcher_without_place() {
+        let mat = StreetMatcher::default().match_by_place("ch de saint-cierges 3", None);
+        assert_eq!(mat.street.unwrap(), "chemin de saint-cierges 3".to_string());
+    }
+
+    #[test]
     fn street_matcher_with_plz() {
-        let mat = StreetMatcher::new(None, None).match_by_plz("qu du seujet 36", Some(1201));
+        let mat = StreetMatcher::default().match_by_plz("qu du seujet 36", Some(1201));
         assert_eq!(mat.street.unwrap(), String::from("quai du seujet 36"));
         assert_eq!(
             mat.file_found.unwrap(),
@@ -26,22 +38,22 @@ mod tests {
     }
 
     #[test]
-    fn street_matcher_no_plz() {
-        let mat = StreetMatcher::new(None, None).match_by_plz("qu du seujet 36", None);
+    fn street_matcher_without_plz() {
+        let mat = StreetMatcher::default().match_by_plz("qu du seujet 36", None);
         assert_eq!(mat.street.unwrap(), String::from("quai du seujet 36"));
         assert_eq!(mat.file_found, None)
     }
 
     #[test]
     fn street_matcher_wrong_plz() {
-        let mat = StreetMatcher::new(None, None).match_by_plz("qu du seujet 36", Some(1231231));
+        let mat = StreetMatcher::default().match_by_plz("qu du seujet 36", Some(1231231));
         assert_eq!(mat.street.unwrap(), String::from("quai du seujet 36"));
         assert_eq!(mat.file_found, None)
     }
 
     #[test]
     fn street_matcher_wrong_first_word() {
-        let mat = StreetMatcher::new(None, None).match_by_plz("u du seujet 36", Some(1201));
+        let mat = StreetMatcher::default().match_by_plz("u du seujet 36", Some(1201));
         assert_eq!(mat.street.unwrap(), String::from("quai du seujet 36"));
         assert_eq!(
             mat.file_found.unwrap(),
@@ -51,14 +63,14 @@ mod tests {
 
     #[test]
     fn street_matcher_wrong_first_word_no_plz() {
-        let mat = StreetMatcher::new(None, None).match_by_plz("u du seujet 36", None);
+        let mat = StreetMatcher::default().match_by_plz("u du seujet 36", None);
         assert_eq!(mat.street.unwrap(), String::from("quai du seujet 36"));
         assert_eq!(mat.file_found, None)
     }
 
     #[test]
     fn street_matcher_wrong_first_word_wrong_plz() {
-        let mat = StreetMatcher::new(None, None).match_by_plz("u du seujet 36", Some(2132131));
+        let mat = StreetMatcher::default().match_by_plz("u du seujet 36", Some(2132131));
         assert_eq!(mat.street.unwrap(), String::from("quai du seujet 36"));
         assert_eq!(mat.file_found, None)
     }

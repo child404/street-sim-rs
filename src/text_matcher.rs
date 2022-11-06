@@ -6,7 +6,6 @@ use std::{
     fs::{self, File},
     io::{self, prelude::*, BufReader},
     path::PathBuf,
-    sync::atomic::{AtomicBool, AtomicPtr, Ordering},
     sync::{Arc, Mutex},
     thread,
 };
