@@ -36,9 +36,8 @@ pub(crate) fn clean_street(street: &str) -> String {
             .expect("the string format is correct due to regex");
         street = format!("{} {}", parts.collect::<Vec<&str>>().join(" "), number);
     }
-    // TODO: add punctuation removing after the next regex
     // Matches: eisfeldstrasse 21/23, milchstrasse 2-10a, milchstrasse 2,10a, bernstrasse 7 8
-    match Regex::new(r"(.*?\s\d*?\s?\w?)[/,\-\s]")
+    match Regex::new(r"(.*?\s\d*?\s?\w?)[\./,\-\s]")
         .unwrap()
         .find(&street)
     {
@@ -47,7 +46,7 @@ pub(crate) fn clean_street(street: &str) -> String {
         _ => street.as_str(),
     }
     .trim()
-    .to_string()
+    .replace(&['(', ')', ',', '\"', '.', ';', ':', '\'', '-'][..], "")
 }
 
 fn does_contain_numbers(street: &str) -> bool {

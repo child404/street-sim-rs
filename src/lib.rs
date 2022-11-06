@@ -1,3 +1,7 @@
+//! This crate is aimed to be a simple and fast solution for text-matching from the file with
+//! more than 2 millions of lines, especially for streets in Switzerland.
+//!
+//! Also, it serves as my first Rust project used for work and published out to the people
 mod candidate;
 mod street_matcher;
 mod text_matcher;
@@ -21,7 +25,51 @@ mod tests {
         assert_eq!(
             street_matcher::clean_street(street),
             "bernstrasse 7".to_string()
-        )
+        );
+
+        let street = "   a4 Bernstrasse   ";
+        assert_eq!(
+            street_matcher::clean_street(street),
+            "bernstrasse a4".to_string()
+        );
+
+        let street = "   4 Bernstrasse   ";
+        assert_eq!(
+            street_matcher::clean_street(street),
+            "bernstrasse 4".to_string()
+        );
+
+        let street = "   Bernstrasse 4a, 5, 6   ";
+        assert_eq!(
+            street_matcher::clean_street(street),
+            "bernstrasse 4a".to_string()
+        );
+
+        // FIXME: doesn't work for \s separator
+        let street = "   Bernstrasse 4a 5 6   ";
+        assert_eq!(
+            street_matcher::clean_street(street),
+            "bernstrasse 4a".to_string()
+        );
+
+        let street = "   Bernstrasse 4a-5-6   ";
+        assert_eq!(
+            street_matcher::clean_street(street),
+            "bernstrasse 4a".to_string()
+        );
+
+        let street = "   Bernstrasse 4a/5/6   ";
+        assert_eq!(
+            street_matcher::clean_street(street),
+            "bernstrasse 4a".to_string()
+        );
+
+        // TODO: add tests for Bernstrasse 7 A
+        let street = "   Bernstrasse 4a. 5 6   ";
+        assert_eq!(
+            street_matcher::clean_street(street),
+            "bernstrasse 4a".to_string()
+        );
     }
 
     #[test]

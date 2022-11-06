@@ -1,6 +1,7 @@
 mod candidate;
 mod street_matcher;
 mod text_matcher;
+
 use crate::street_matcher::StreetMatcher;
 
 fn main() {
