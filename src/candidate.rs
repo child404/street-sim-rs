@@ -1,3 +1,4 @@
+//! This module creates an object that represents the candidate text to the target text
 use std::{
     cmp::{Ordering, PartialEq},
     path::PathBuf,

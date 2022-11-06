@@ -1,9 +1,12 @@
+//! This module creates API and algorithm of matching Candidates from file input.
+//! Candidates in file should be separated by newline
 use crate::candidate::Candidate;
 use std::{
     cmp,
     fs::{self, File},
     io::{self, prelude::*, BufReader},
     path::PathBuf,
+    sync::atomic::{AtomicBool, AtomicPtr, Ordering},
     sync::{Arc, Mutex},
     thread,
 };
@@ -11,13 +14,19 @@ use threadpool::ThreadPool;
 use unicode_segmentation::UnicodeSegmentation;
 
 pub struct TextMatcher {
-    sensitivity: f64,
-    keep: usize,
+    pub sensitivity: f64,
+    pub num_to_keep: usize,
 }
 
 impl TextMatcher {
-    pub fn new(sensitivity: f64, keep: usize) -> Self {
-        Self { sensitivity, keep }
+    /// `sensitivity` - the lower threshold of the `similarity` value that still should be kept
+    ///
+    /// `num_to_keep` - the number of candidates to keep after the matching process
+    pub fn new(sensitivity: f64, num_to_keep: usize) -> Self {
+        Self {
+            sensitivity,
+            num_to_keep,
+        }
     }
 
     /// Search through file for candidates each on new line
@@ -33,7 +42,7 @@ impl TextMatcher {
     ///
     /// # Errors
     ///
-    /// If this function encounteres any problem with readiing the file, an error variant will be returned
+    /// If this function encounteres any problem with reading the file, an error variant will be returned
     pub fn find_matches_in_file(
         &self,
         text: &str,
@@ -60,7 +69,7 @@ impl TextMatcher {
             }
         }
         candidates.sort_by(|lhs, rhs| rhs.partial_cmp(lhs).unwrap());
-        Ok(candidates[..cmp::min(self.keep, candidates.len())].to_vec())
+        Ok(candidates[..cmp::min(self.num_to_keep, candidates.len())].to_vec())
     }
 
     /// Search through files in directory for candidates each on new line
@@ -75,7 +84,7 @@ impl TextMatcher {
     /// ```
     pub fn find_matches_in_dir(
         sens: f64,
-        keep: usize,
+        num_to_keep: usize,
         text: &str,
         path_to_dir: PathBuf,
         num_of_threads: Option<usize>,
@@ -92,7 +101,7 @@ impl TextMatcher {
         {
             let text = text.to_string();
             let matches = matches.clone();
-            let matcher = TextMatcher::new(sens, keep);
+            let matcher = TextMatcher::new(sens, num_to_keep);
             pool.execute(move || {
                 if let Ok(candidates) =
                     matcher.find_matches_in_file(&text, &file.path(), is_first_let_eq)
@@ -107,6 +116,6 @@ impl TextMatcher {
 
         let mut matches = matches.lock().unwrap().to_vec();
         matches.sort_by(|lhs, rhs| rhs.partial_cmp(lhs).unwrap());
-        matches[..cmp::min(keep, matches.len())].to_vec()
+        matches[..cmp::min(num_to_keep, matches.len())].to_vec()
     }
 }

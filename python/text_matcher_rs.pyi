@@ -1,4 +1,3 @@
-# TODO: add StreetMatcher stubs
 from typing import List, Optional
 
 class Candidate:
@@ -35,6 +34,7 @@ class TextMatcher:
     ) -> List[Candidate]: ...
 
 class MatchedStreet:
+    def __init__(self, street: Optional[str], file_found: Optional[str]): ...
     @property
     def street(self) -> Optional[str]: ...
     @property

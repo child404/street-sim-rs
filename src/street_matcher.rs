@@ -1,3 +1,4 @@
+//! This module provides matching on official Switzerland streets
 use crate::{candidate::Candidate, text_matcher::TextMatcher};
 
 use regex::Regex;
@@ -9,7 +10,7 @@ use std::{
 const SENSITIVITY: f64 = 0.6;
 const FILE_SENSITIVITY: f64 = 0.87;
 const PLACE_SEARCH_SENSITIVITY: f64 = 0.7;
-const KEEP: usize = 50;
+const NUM_TO_KEEP: usize = 50;
 const PATH_TO_PLACES: &str = "./test_data/places.txt";
 const PATH_TO_PLZS_DIR: &str = "./test_data/plzs/";
 const PATH_TO_PLACES_DIR: &str = "./test_data/places/";
@@ -70,7 +71,7 @@ impl StreetMatcher {
     /// #     let sm = StreetMatcher::new(None, None);
     /// #     assert_eq!(sm.match_by_plz("qu du seujet 36", Some(1201)).street.unwrap(), "quai du seujet 36".to_string());
     /// #     assert_eq!(sm.match_by_place("aarstr. 76", Some("Bern")).street.unwrap(), "aarstrasse 76".to_string());
-    /// #}
+    /// # }
     /// ```
     pub fn new(sensitivity: Option<f64>, file_sensitivity: Option<f64>) -> Self {
         Self {
@@ -87,7 +88,7 @@ impl StreetMatcher {
     ) -> Vec<Candidate> {
         TextMatcher::find_matches_in_dir(
             self.sensitivity,
-            KEEP,
+            NUM_TO_KEEP,
             street,
             dir.to_path_buf(),
             None,
@@ -138,7 +139,7 @@ impl StreetMatcher {
         let street = &clean_street(street);
         file.map_or_else(
             || self._search_in_dir(street, dir, None),
-            |file| match TextMatcher::new(self.file_sensitivity, KEEP)
+            |file| match TextMatcher::new(self.file_sensitivity, NUM_TO_KEEP)
                 .find_matches_in_file(street, &file, None)
             {
                 Ok(mat) if !mat.is_empty() => MatchedStreet {
@@ -163,7 +164,7 @@ impl StreetMatcher {
     /// # fn main() {
     /// #     let mat = StreetMatcher::new(None, None).match_by_plz("qu du seujet 36", Some(1201));
     /// #     assert_eq!(mat.street.unwrap(), "quai du seujet 36".to_string());
-    /// #}
+    /// # }
     /// ```
     ///
     /// # Panics
@@ -190,7 +191,7 @@ impl StreetMatcher {
     /// # fn main() {
     /// #     let mat = StreetMatcher::new(None, None).match_by_place("aarstr. 76", Some("Bern"));
     /// #     assert_eq!(mat.street.unwrap(), "aarstrasse 76".to_string());
-    /// #}
+    /// # }
     /// ```
     ///
     /// # Panics
@@ -210,7 +211,7 @@ impl StreetMatcher {
 
     fn _match_place(place: &str) -> Option<Candidate> {
         // FIXME: add cast to lowercase here
-        match TextMatcher::new(PLACE_SEARCH_SENSITIVITY, KEEP).find_matches_in_file(
+        match TextMatcher::new(PLACE_SEARCH_SENSITIVITY, NUM_TO_KEEP).find_matches_in_file(
             &String::from(place).to_lowercase(),
             &PathBuf::from_str(PATH_TO_PLACES).expect("places.txt file exists"),
             None,

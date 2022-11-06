@@ -20,7 +20,7 @@ path = "src/main.rs"
 
 [[bench]]
 name = "tm_rs_bench"
-harness = false # TODO: figure out this parameter
+harness = false # TODO: add custom harness
 
 [dependencies]
 strsim = "0.10.0"
