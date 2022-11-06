@@ -5,7 +5,7 @@ use std::{
     cmp,
     fs::{self, File},
     io::{self, prelude::*, BufReader},
-    path::PathBuf,
+    path::Path,
     sync::{Arc, Mutex},
     thread,
 };
@@ -32,9 +32,10 @@ impl TextMatcher {
     ///
     /// ```rust
     /// # use text_matcher_rs::TextMatcher;
+    /// # use std::path::PathBuf;
     /// #
     /// # fn main() {
-    /// #     let mat = TextMatcher::new(0.8, 1).find_matches_in_file("qu du seujet 36", "./test_data/plzs/1201", None).unwrap();
+    /// #     let mat = TextMatcher::new(0.8, 1).find_matches_in_file("qu du seujet 36", &PathBuf::from("./test_data/plzs/1201"), None).unwrap();
     /// #     assert_eq!(mat[0].text, "quai du seujet 36".to_string())
     /// # }
     /// ```
@@ -45,7 +46,7 @@ impl TextMatcher {
     pub fn find_matches_in_file(
         &self,
         text: &str,
-        file: &PathBuf,
+        file: &Path,
         is_first_let_eq: Option<bool>,
     ) -> io::Result<Vec<Candidate>> {
         let mut candidates = Vec::new(); // try to use .clear() here with &mut TextMatcher
@@ -75,9 +76,10 @@ impl TextMatcher {
     ///
     /// ```rust
     /// # use text_matcher_rs::TextMatcher;
+    /// # use std::path::PathBuf;
     /// #
     /// # fn main() {
-    /// #     let mat = TextMatcher::find_matches_in_dir(0.8, 1, "qu du seujet 36", PathBuf::from("./test_data/plzs/"), None, None);
+    /// #     let mat = TextMatcher::find_matches_in_dir(0.8, 1, "qu du seujet 36", &PathBuf::from("./test_data/plzs/"), None, None);
     /// #     assert_eq!(mat[0].text, "quai du seujet 36".to_string())
     /// # }
     /// ```
@@ -85,7 +87,7 @@ impl TextMatcher {
         sens: f64,
         num_to_keep: usize,
         text: &str,
-        path_to_dir: PathBuf,
+        path_to_dir: &Path,
         num_of_threads: Option<usize>,
         is_first_let_eq: Option<bool>,
     ) -> Vec<Candidate> {

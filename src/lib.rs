@@ -8,12 +8,21 @@ pub use text_matcher::TextMatcher;
 
 #[cfg(test)]
 mod tests {
-    use crate::{StreetMatcher, TextMatcher};
+    use crate::{street_matcher, StreetMatcher, TextMatcher};
     use pretty_assertions::assert_eq;
     use std::{path::PathBuf, str::FromStr};
 
     const DATA_FILE: &str = "./test_data/plzs/1201";
     const DATA_DIR: &str = "./test_data/plzs/";
+
+    #[test]
+    fn test_clean_street() {
+        let street = "   Bernstrasse 7   ";
+        assert_eq!(
+            street_matcher::clean_street(street),
+            "bernstrasse 7".to_string()
+        )
+    }
 
     #[test]
     fn street_matcher_with_place() {
@@ -114,12 +123,12 @@ mod tests {
     }
 
     #[test]
-    fn text_matcher_multiple_files() {
+    fn text_matcher_find_in_dir() {
         let matches = TextMatcher::find_matches_in_dir(
             0.1,
             5,
             "qu du seujet 36",
-            PathBuf::from_str(DATA_DIR).unwrap(),
+            &PathBuf::from_str(DATA_DIR).unwrap(),
             Some(4),
             Some(true),
         );

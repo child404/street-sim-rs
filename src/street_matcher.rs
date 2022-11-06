@@ -26,8 +26,8 @@ fn does_start_with_number(street: &str) -> bool {
         || Regex::new(r"^\w\d+,?\s").unwrap().is_match(street)
 }
 
-fn clean_street(street: &str) -> String {
-    let mut street = String::from(street.trim()).to_lowercase();
+pub(crate) fn clean_street(street: &str) -> String {
+    let mut street = street.trim().to_lowercase();
     // Matches: '76 chemin des clos' or 'a4 résidence du golf'
     if does_start_with_number(&street) {
         let mut parts = street.split_whitespace();
@@ -99,7 +99,7 @@ impl StreetMatcher {
             self.sensitivity,
             NUM_TO_KEEP,
             street,
-            dir.to_path_buf(),
+            dir,
             None,
             Some(is_first_letters_eq),
         )
@@ -219,9 +219,8 @@ impl StreetMatcher {
     }
 
     fn _match_place(place: &str) -> Option<Candidate> {
-        // FIXME: add cast to lowercase here
         match TextMatcher::new(PLACE_SEARCH_SENSITIVITY, NUM_TO_KEEP).find_matches_in_file(
-            &String::from(place).to_lowercase(),
+            &place.trim().to_lowercase(),
             &PathBuf::from_str(PATH_TO_PLACES).expect("places.txt file exists"),
             None,
         ) {
