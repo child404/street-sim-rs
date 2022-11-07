@@ -20,7 +20,41 @@ mod tests {
     const DATA_DIR: &str = "./test_data/plzs/";
 
     #[test]
-    fn test_clean_street() {
+    fn street_contains_numbers() {
+        let street = "Bernstrasse 7";
+        assert!(
+            street_matcher::contains_numbers(street),
+            "Street does not contain numbers, value was {}",
+            street
+        )
+    }
+
+    #[test]
+    fn street_does_not_contain_numbers() {
+        let street = "Bernstrasse";
+        assert!(
+            !street_matcher::contains_numbers(street),
+            "Street contain numbers, value was {}",
+            street
+        )
+    }
+
+    #[test]
+    #[should_panic(expected = "must contain street number")]
+    fn no_numbers_in_street_by_plz() {
+        let street = "Bernstrasse";
+        StreetMatcher::new(None, None).match_by_plz(street, None);
+    }
+
+    #[test]
+    #[should_panic(expected = "must contain street number")]
+    fn no_numbers_in_street_by_place() {
+        let street = "Bernstrasse";
+        StreetMatcher::new(None, None).match_by_place(street, None);
+    }
+
+    #[test]
+    fn clean_street() {
         let street = "   Bernstrasse 7   ";
         assert_eq!(
             street_matcher::clean_street(street),

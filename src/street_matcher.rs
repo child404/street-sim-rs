@@ -2,10 +2,7 @@
 use crate::{candidate::Candidate, text_matcher::TextMatcher};
 
 use regex::Regex;
-use std::{
-    path::{Path, PathBuf},
-    str::FromStr,
-};
+use std::path::{Path, PathBuf};
 
 const SENSITIVITY: f64 = 0.6;
 const FILE_SENSITIVITY: f64 = 0.87;
@@ -14,6 +11,9 @@ const NUM_TO_KEEP: usize = 50;
 const PATH_TO_PLACES: &str = "./test_data/places.txt";
 const PATH_TO_PLZS_DIR: &str = "./test_data/plzs/";
 const PATH_TO_PLACES_DIR: &str = "./test_data/places/";
+const PUNCTUATIONS: &[char] = &[
+    '_', '\\', '(', ')', ',', '\"', '.', ';', ':', '\'', '-', '/',
+];
 
 #[derive(Debug)]
 pub struct MatchedStreet {
@@ -21,7 +21,7 @@ pub struct MatchedStreet {
     pub file_found: Option<PathBuf>,
 }
 
-fn does_start_with_number(street: &str) -> bool {
+fn starts_with_street_number(street: &str) -> bool {
     Regex::new(r"^\d+,?\s.+").unwrap().is_match(street)
         || Regex::new(r"^\w\d+,?\s").unwrap().is_match(street)
 }
@@ -29,7 +29,7 @@ fn does_start_with_number(street: &str) -> bool {
 pub(crate) fn clean_street(street: &str) -> String {
     let mut street = street.trim().to_lowercase();
     // Matches: '76 chemin des clos' or 'a4 résidence du golf'
-    if does_start_with_number(&street) {
+    if starts_with_street_number(&street) {
         let mut parts = street.split_whitespace();
         let number = parts
             .next()
@@ -37,20 +37,21 @@ pub(crate) fn clean_street(street: &str) -> String {
         street = format!("{} {}", parts.collect::<Vec<&str>>().join(" "), number);
     }
     // Matches: eisfeldstrasse 21/23, milchstrasse 2-10a, milchstrasse 2,10a, bernstrasse 7 8
-    match Regex::new(r"(.*?\s\d*?\s?\w?)[\./,\-\s]")
+    match Regex::new(r"(.*?\s\d*?\s?[a-zA-Z]?)[\./,\-\s]")
         .unwrap()
         .find(&street)
     {
         // but not bernstrasse 7 A
-        Some(mat) if !Regex::new(r"\s\d+[/,\-\s]\w$").unwrap().is_match(&street) => mat.as_str(),
+        Some(mat) if !Regex::new(r"\s\d*?\s[a-zA-Z]$").unwrap().is_match(&street) => mat.as_str(),
         _ => street.as_str(),
     }
     .trim()
-    .replace(&['(', ')', ',', '\"', '.', ';', ':', '\'', '-'][..], "")
+    .replace(PUNCTUATIONS, "")
 }
 
-fn does_contain_numbers(street: &str) -> bool {
-    street.chars().map(char::is_numeric).count() > 0
+#[inline]
+pub(crate) fn contains_numbers(street: &str) -> bool {
+    street.chars().filter(|ch| ch.is_numeric()).count() > 0
 }
 
 pub struct StreetMatcher {
@@ -138,7 +139,7 @@ impl StreetMatcher {
     }
 
     fn _find_matches(&self, street: &str, dir: &Path, file: Option<PathBuf>) -> MatchedStreet {
-        if !does_contain_numbers(street) {
+        if !contains_numbers(street) {
             panic!(
                 "Argument 'street' must contain street number! Got: '{}'",
                 street
@@ -211,16 +212,23 @@ impl StreetMatcher {
             &PathBuf::from(PATH_TO_PLACES_DIR),
             place.and_then(|place| {
                 StreetMatcher::_match_place(place).map(|candidate| {
-                    PathBuf::from(format!("{}{}", PATH_TO_PLACES_DIR, candidate.text))
+                    PathBuf::from(format!(
+                        "{}{}",
+                        PATH_TO_PLACES_DIR,
+                        candidate.text.replace(' ', "_").replace('/', "%2C")
+                    ))
                 })
             }),
         )
     }
 
     fn _match_place(place: &str) -> Option<Candidate> {
+        // TODO: consider removing PUNCTUATIONS and '/', and compare places like that
+        //       the problem is that we cannot revert place name back (as some places come with '(', ')', etc.
+        //       Possibly, we need to remove PUNCTUATIONS while comparing target string with the candidate string in-place
         match TextMatcher::new(PLACE_SEARCH_SENSITIVITY, NUM_TO_KEEP).find_matches_in_file(
             &place.trim().to_lowercase(),
-            &PathBuf::from_str(PATH_TO_PLACES).expect("places.txt file exists"),
+            &PathBuf::from(PATH_TO_PLACES),
             None,
         ) {
             Ok(candidates) if !candidates.is_empty() => Some(candidates[0].clone()),

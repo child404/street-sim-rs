@@ -59,6 +59,7 @@ impl TextMatcher {
             {
                 continue;
             }
+            // TODO: think on removing punctuations while comparing strings, i.e.: candidate_text.replace(PUNCTUATIONS, "").replace('/', "")
             let similarity = strsim::normalized_levenshtein(text, &candidate_txt);
             if similarity - self.sensitivity > 0.0 {
                 candidates.push(Candidate {
