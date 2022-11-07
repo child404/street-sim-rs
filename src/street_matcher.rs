@@ -15,43 +15,65 @@ const PUNCTUATIONS: &[char] = &[
     '_', '\\', '(', ')', ',', '\"', '.', ';', ':', '\'', '-', '/',
 ];
 
+pub struct Street {
+    pub value: String,
+}
+
+impl Street {
+    pub fn new(street: &str) -> Self {
+        if !Street::contains_numbers(street) {
+            panic!(
+                "Argument 'street' must contain street number! Got: '{}'",
+                street
+            );
+        }
+        Self {
+            value: Street::clean(street),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn contains_numbers(street: &str) -> bool {
+        street.chars().filter(|ch| ch.is_numeric()).count() > 0
+    }
+
+    #[inline]
+    pub(crate) fn clean(street: &str) -> String {
+        let mut street = street.trim().to_lowercase();
+        // Matches: '76 chemin des clos' or 'a4 résidence du golf'
+        if Street::starts_with_street_number(&street) {
+            let mut parts = street.split_whitespace();
+            let number = parts
+                .next()
+                .expect("the string format is correct due to regex");
+            street = format!("{} {}", parts.collect::<Vec<&str>>().join(" "), number);
+        }
+        // Matches: eisfeldstrasse 21/23, milchstrasse 2-10a, milchstrasse 2,10a, bernstrasse 7 8
+        match Regex::new(r"(.*?\s\d*?\s?[a-zA-Z]?)[\./,\-\s]")
+            .unwrap()
+            .find(&street)
+        {
+            // but not bernstrasse 7 A
+            Some(mat) if !Regex::new(r"\s\d*?\s[a-zA-Z]$").unwrap().is_match(&street) => {
+                mat.as_str()
+            }
+            _ => street.as_str(),
+        }
+        .trim()
+        .replace(PUNCTUATIONS, "")
+    }
+
+    #[inline]
+    pub(crate) fn starts_with_street_number(street: &str) -> bool {
+        Regex::new(r"^\d+,?\s.+").unwrap().is_match(street)
+            || Regex::new(r"^\w\d+,?\s").unwrap().is_match(street)
+    }
+}
+
 #[derive(Debug)]
 pub struct MatchedStreet {
     pub street: Option<String>,
     pub file_found: Option<PathBuf>,
-}
-
-fn starts_with_street_number(street: &str) -> bool {
-    Regex::new(r"^\d+,?\s.+").unwrap().is_match(street)
-        || Regex::new(r"^\w\d+,?\s").unwrap().is_match(street)
-}
-
-pub(crate) fn clean_street(street: &str) -> String {
-    let mut street = street.trim().to_lowercase();
-    // Matches: '76 chemin des clos' or 'a4 résidence du golf'
-    if starts_with_street_number(&street) {
-        let mut parts = street.split_whitespace();
-        let number = parts
-            .next()
-            .expect("the string format is correct due to regex");
-        street = format!("{} {}", parts.collect::<Vec<&str>>().join(" "), number);
-    }
-    // Matches: eisfeldstrasse 21/23, milchstrasse 2-10a, milchstrasse 2,10a, bernstrasse 7 8
-    match Regex::new(r"(.*?\s\d*?\s?[a-zA-Z]?)[\./,\-\s]")
-        .unwrap()
-        .find(&street)
-    {
-        // but not bernstrasse 7 A
-        Some(mat) if !Regex::new(r"\s\d*?\s[a-zA-Z]$").unwrap().is_match(&street) => mat.as_str(),
-        _ => street.as_str(),
-    }
-    .trim()
-    .replace(PUNCTUATIONS, "")
-}
-
-#[inline]
-pub(crate) fn contains_numbers(street: &str) -> bool {
-    street.chars().filter(|ch| ch.is_numeric()).count() > 0
 }
 
 pub struct StreetMatcher {
@@ -91,14 +113,14 @@ impl StreetMatcher {
 
     fn _find_matches_in_dir(
         &self,
-        street: &str,
+        street: &Street,
         dir: &Path,
         is_first_letters_eq: bool,
     ) -> Vec<Candidate> {
         TextMatcher::find_matches_in_dir(
             self.sensitivity,
             NUM_TO_KEEP,
-            street,
+            &street.value,
             dir,
             None,
             Some(is_first_letters_eq),
@@ -107,7 +129,7 @@ impl StreetMatcher {
 
     fn _search_in_dir(
         &self,
-        street: &str,
+        street: &Street,
         dir: &Path,
         file_cand: Option<PathBuf>,
     ) -> MatchedStreet {
@@ -139,23 +161,19 @@ impl StreetMatcher {
     }
 
     fn _find_matches(&self, street: &str, dir: &Path, file: Option<PathBuf>) -> MatchedStreet {
-        if !contains_numbers(street) {
-            panic!(
-                "Argument 'street' must contain street number! Got: '{}'",
-                street
-            );
-        }
-        let street = &clean_street(street);
+        let street = Street::new(street);
         file.map_or_else(
-            || self._search_in_dir(street, dir, None),
-            |file| match TextMatcher::new(self.file_sensitivity, NUM_TO_KEEP)
-                .find_matches_in_file(street, &file, None)
-            {
+            || self._search_in_dir(&street, dir, None),
+            |file| match TextMatcher::new(self.file_sensitivity, NUM_TO_KEEP).find_matches_in_file(
+                &street.value,
+                &file,
+                None,
+            ) {
                 Ok(mat) if !mat.is_empty() => MatchedStreet {
                     street: Some(mat[0].text.clone()),
                     file_found: Some(file),
                 },
-                _ => self._search_in_dir(street, dir, Some(file)),
+                _ => self._search_in_dir(&street, dir, Some(file)),
             },
         )
     }

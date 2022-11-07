@@ -12,8 +12,30 @@ use std::{
 use threadpool::ThreadPool;
 use unicode_segmentation::UnicodeSegmentation;
 
+pub struct Sensitivity {
+    pub value: f64,
+}
+
+impl Sensitivity {
+    pub fn new(sensitivity: f64) -> Self {
+        if 1.0 - sensitivity < 0.0 {
+            panic!(
+                "Sensitivity should be lower or equal than 1.0, but the value was {}",
+                sensitivity
+            );
+        }
+        if sensitivity - 1e-10 < 0.0 {
+            panic!(
+                "Sensitivity should be larger or equal than 0.0, but the value was {}",
+                sensitivity
+            );
+        }
+        Self { value: sensitivity }
+    }
+}
+
 pub struct TextMatcher {
-    pub sensitivity: f64,
+    pub sensitivity: Sensitivity,
     pub num_to_keep: usize,
 }
 
@@ -21,9 +43,12 @@ impl TextMatcher {
     /// `sensitivity` - the lower threshold of the `similarity` value that still should be kept
     ///
     /// `num_to_keep` - the number of candidates to keep after the matching process
+    ///
+    /// # Panics
+    /// Panics if the sensitivity value is lower than 0.0 or larger than 1.0
     pub fn new(sensitivity: f64, num_to_keep: usize) -> Self {
         Self {
-            sensitivity,
+            sensitivity: Sensitivity::new(sensitivity),
             num_to_keep,
         }
     }
@@ -61,7 +86,7 @@ impl TextMatcher {
             }
             // TODO: think on removing punctuations while comparing strings, i.e.: candidate_text.replace(PUNCTUATIONS, "").replace('/', "")
             let similarity = strsim::normalized_levenshtein(text, &candidate_txt);
-            if similarity - self.sensitivity > 0.0 {
+            if similarity - self.sensitivity.value > 0.0 {
                 candidates.push(Candidate {
                     text: candidate_txt,
                     similarity,
@@ -85,7 +110,7 @@ impl TextMatcher {
     /// # }
     /// ```
     pub fn find_matches_in_dir(
-        sens: f64,
+        sensitivity: f64,
         num_to_keep: usize,
         text: &str,
         path_to_dir: &Path,
@@ -103,7 +128,7 @@ impl TextMatcher {
         {
             let text = text.to_string();
             let matches = matches.clone();
-            let matcher = TextMatcher::new(sens, num_to_keep);
+            let matcher = TextMatcher::new(sensitivity, num_to_keep);
             pool.execute(move || {
                 if let Ok(candidates) =
                     matcher.find_matches_in_file(&text, &file.path(), is_first_let_eq)

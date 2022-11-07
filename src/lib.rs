@@ -7,12 +7,12 @@ mod street_matcher;
 mod text_matcher;
 
 pub use candidate::Candidate;
-pub use street_matcher::StreetMatcher;
-pub use text_matcher::TextMatcher;
+pub use street_matcher::{Street, StreetMatcher};
+pub use text_matcher::{Sensitivity, TextMatcher};
 
 #[cfg(test)]
 mod tests {
-    use crate::{street_matcher, StreetMatcher, TextMatcher};
+    use crate::{Sensitivity, Street, StreetMatcher, TextMatcher};
     use pretty_assertions::assert_eq;
     use std::{path::PathBuf, str::FromStr};
 
@@ -20,10 +20,31 @@ mod tests {
     const DATA_DIR: &str = "./test_data/plzs/";
 
     #[test]
+    #[should_panic(expected = "should be larger or equal than")]
+    fn sensitivity_lower_than_zero() {
+        Sensitivity::new(-1.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "should be lower or equal than")]
+    fn sensitivity_larger_than_one() {
+        Sensitivity::new(1.1);
+    }
+
+    #[test]
+    fn street_matcher_max_sensitivity() {
+        // Some random string in the input
+        let street = "FdsfdsfsdfssFSDfdsfsdfsBernstrasse 7";
+        let mat = StreetMatcher::new(Some(1.0), Some(1.0)).match_by_plz(street, None);
+        assert_eq!(mat.street, None);
+        assert_eq!(mat.file_found, None);
+    }
+
+    #[test]
     fn street_contains_numbers() {
         let street = "Bernstrasse 7";
         assert!(
-            street_matcher::contains_numbers(street),
+            Street::contains_numbers(street),
             "Street does not contain numbers, value was {}",
             street
         )
@@ -33,7 +54,7 @@ mod tests {
     fn street_does_not_contain_numbers() {
         let street = "Bernstrasse";
         assert!(
-            !street_matcher::contains_numbers(street),
+            !Street::contains_numbers(street),
             "Street contain numbers, value was {}",
             street
         )
@@ -56,54 +77,30 @@ mod tests {
     #[test]
     fn clean_street() {
         let street = "   Bernstrasse 7   ";
-        assert_eq!(
-            street_matcher::clean_street(street),
-            "bernstrasse 7".to_string()
-        );
+        assert_eq!(Street::clean(street), "bernstrasse 7".to_string());
 
         let street = "   a4 Bernstrasse   ";
-        assert_eq!(
-            street_matcher::clean_street(street),
-            "bernstrasse a4".to_string()
-        );
+        assert_eq!(Street::clean(street), "bernstrasse a4".to_string());
 
         let street = "   4 Bernstrasse   ";
-        assert_eq!(
-            street_matcher::clean_street(street),
-            "bernstrasse 4".to_string()
-        );
+        assert_eq!(Street::clean(street), "bernstrasse 4".to_string());
 
         let street = "   Bernstrasse 4a, 5, 6   ";
-        assert_eq!(
-            street_matcher::clean_street(street),
-            "bernstrasse 4a".to_string()
-        );
+        assert_eq!(Street::clean(street), "bernstrasse 4a".to_string());
 
         // FIXME: doesn't work for \s separator
         let street = "   Bernstrasse 4a 5 6   ";
-        assert_eq!(
-            street_matcher::clean_street(street),
-            "bernstrasse 4a".to_string()
-        );
+        assert_eq!(Street::clean(street), "bernstrasse 4a".to_string());
 
         let street = "   Bernstrasse 4a-5-6   ";
-        assert_eq!(
-            street_matcher::clean_street(street),
-            "bernstrasse 4a".to_string()
-        );
+        assert_eq!(Street::clean(street), "bernstrasse 4a".to_string());
 
         let street = "   Bernstrasse 4a/5/6   ";
-        assert_eq!(
-            street_matcher::clean_street(street),
-            "bernstrasse 4a".to_string()
-        );
+        assert_eq!(Street::clean(street), "bernstrasse 4a".to_string());
 
         // TODO: add tests for Bernstrasse 7 A
         let street = "   Bernstrasse 4a. 5 6   ";
-        assert_eq!(
-            street_matcher::clean_street(street),
-            "bernstrasse 4a".to_string()
-        );
+        assert_eq!(Street::clean(street), "bernstrasse 4a".to_string());
     }
 
     #[test]
