@@ -2,6 +2,8 @@ mod candidate;
 mod street_matcher;
 mod text_matcher;
 
+use text_matcher_rs::TextMatcher;
+
 use crate::street_matcher::{MatchedStreet, StreetMatcher};
 use std::panic;
 use std::{

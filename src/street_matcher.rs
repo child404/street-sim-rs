@@ -4,7 +4,7 @@
 // TODO: add PLZ and Place structs and define preprocessing/to dir/file inside structs (maybe generics?)
 use crate::{
     candidate::Candidate,
-    text_matcher::{SearchMethod, TextMatcher},
+    text_matcher::{SearchAlgo, TextMatcher},
 };
 
 use regex::Regex;
@@ -170,7 +170,7 @@ impl StreetMatcher {
             dir,
             None,
             Some(is_first_letters_eq),
-            Some(SearchMethod::Jaro),
+            None,
         )
     }
 
@@ -199,12 +199,8 @@ impl StreetMatcher {
     ) -> MatchedStreet {
         file.map_or_else(
             || self._search_in_dir(street, dir, None),
-            |file| match TextMatcher::new(
-                self.file_sensitivity,
-                NUM_TO_KEEP,
-                Some(SearchMethod::Jaro),
-            )
-            .find_matches_in_file(&street.value, &file, None)
+            |file| match TextMatcher::new(self.file_sensitivity, NUM_TO_KEEP, None)
+                .find_matches_in_file(&street.value, &file, None)
             {
                 Ok(mat) if !mat.is_empty() => MatchedStreet::new(mat[0].text.clone(), file),
                 _ => self._search_in_dir(street, dir, Some(file)),
@@ -276,12 +272,7 @@ impl StreetMatcher {
         // TODO: consider removing PUNCTUATIONS and '/', and compare places like that
         //       the problem is that we cannot revert place name back (as some places come with '(', ')', etc.
         //       Possibly, we need to remove PUNCTUATIONS while comparing target string with the candidate string in-place
-        match TextMatcher::new(
-            PLACE_SEARCH_SENSITIVITY,
-            NUM_TO_KEEP,
-            Some(SearchMethod::Jaro),
-        )
-        .find_matches_in_file(
+        match TextMatcher::new(PLACE_SEARCH_SENSITIVITY, NUM_TO_KEEP, None).find_matches_in_file(
             &place.trim().to_lowercase(),
             &PathBuf::from(PATH_TO_PLACES),
             None,

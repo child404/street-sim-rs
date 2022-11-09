@@ -15,26 +15,26 @@ use unicode_segmentation::UnicodeSegmentation;
 type SearchFunc = fn(&str, &str) -> f64;
 
 #[derive(Clone)]
-pub enum SearchMethod {
+pub enum SearchAlgo {
     Levenshtein,
     JaroWinkler,
     Jaro,
     SorensenDice,
 }
 
-impl Default for SearchMethod {
+impl Default for SearchAlgo {
     fn default() -> Self {
-        Self::Levenshtein
+        Self::Jaro
     }
 }
 
-impl SearchMethod {
+impl SearchAlgo {
     pub fn get_func(&self) -> SearchFunc {
         match self {
-            SearchMethod::Levenshtein => strsim::normalized_levenshtein,
-            SearchMethod::Jaro => strsim::jaro,
-            SearchMethod::JaroWinkler => strsim::jaro_winkler,
-            SearchMethod::SorensenDice => strsim::sorensen_dice,
+            SearchAlgo::Levenshtein => strsim::normalized_levenshtein,
+            SearchAlgo::Jaro => strsim::jaro,
+            SearchAlgo::JaroWinkler => strsim::jaro_winkler,
+            SearchAlgo::SorensenDice => strsim::sorensen_dice,
         }
     }
 }
@@ -74,12 +74,12 @@ impl TextMatcher {
     ///
     /// # Panics
     /// Panics if the sensitivity value is lower than 0.0 or larger than 1.0
-    pub fn new(sensitivity: f64, num_to_keep: usize, search_method: Option<SearchMethod>) -> Self {
+    pub fn new(sensitivity: f64, num_to_keep: usize, search_algo: Option<SearchAlgo>) -> Self {
         // TODO: add Sensitivity as param instead of f64
         Self {
             sensitivity: Sensitivity::new(sensitivity),
             num_to_keep,
-            search_func: search_method.unwrap_or_default().get_func(),
+            search_func: search_algo.unwrap_or_default().get_func(),
         }
     }
 
@@ -151,7 +151,7 @@ impl TextMatcher {
         path_to_dir: &Path,
         num_of_threads: Option<usize>,
         is_first_let_eq: Option<bool>,
-        search_method: Option<SearchMethod>,
+        search_method: Option<SearchAlgo>,
     ) -> Vec<Candidate> {
         let matches: Arc<Mutex<Vec<Candidate>>> = Arc::new(Mutex::new(Vec::new()));
         let pool = ThreadPool::new(

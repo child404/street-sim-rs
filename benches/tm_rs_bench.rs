@@ -10,14 +10,6 @@ fn bench_street_matcher(c: &mut Criterion) {
             )
         })
     });
-    c.bench_function("StreetMatcher by place with dir", |b| {
-        b.iter(|| {
-            StreetMatcher::new(black_box(None), black_box(None)).match_by_place(
-                black_box("ch de saint-cierges 3"),
-                black_box(Some("bercher")),
-            )
-        })
-    });
     c.bench_function("StreetMatcher with dir", |b| {
         b.iter(|| {
             StreetMatcher::new(black_box(None), black_box(None))
