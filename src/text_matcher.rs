@@ -12,6 +12,33 @@ use std::{
 use threadpool::ThreadPool;
 use unicode_segmentation::UnicodeSegmentation;
 
+type SearchFunc = fn(&str, &str) -> f64;
+
+#[derive(Clone)]
+pub enum SearchMethod {
+    Levenshtein,
+    JaroWinkler,
+    Jaro,
+    SorensenDice,
+}
+
+impl Default for SearchMethod {
+    fn default() -> Self {
+        Self::Levenshtein
+    }
+}
+
+impl SearchMethod {
+    pub fn get_func(&self) -> SearchFunc {
+        match self {
+            SearchMethod::Levenshtein => strsim::normalized_levenshtein,
+            SearchMethod::Jaro => strsim::jaro,
+            SearchMethod::JaroWinkler => strsim::jaro_winkler,
+            SearchMethod::SorensenDice => strsim::sorensen_dice,
+        }
+    }
+}
+
 pub struct Sensitivity {
     pub value: f64,
 }
@@ -37,6 +64,7 @@ impl Sensitivity {
 pub struct TextMatcher {
     pub sensitivity: Sensitivity,
     pub num_to_keep: usize,
+    pub search_func: SearchFunc,
 }
 
 impl TextMatcher {
@@ -46,21 +74,25 @@ impl TextMatcher {
     ///
     /// # Panics
     /// Panics if the sensitivity value is lower than 0.0 or larger than 1.0
-    pub fn new(sensitivity: f64, num_to_keep: usize) -> Self {
+    pub fn new(sensitivity: f64, num_to_keep: usize, search_method: Option<SearchMethod>) -> Self {
+        // TODO: add Sensitivity as param instead of f64
         Self {
             sensitivity: Sensitivity::new(sensitivity),
             num_to_keep,
+            search_func: search_method.unwrap_or_default().get_func(),
         }
     }
 
     /// Search through file for candidates each on new line
+    ///
+    /// # Examples
     ///
     /// ```rust
     /// # use text_matcher_rs::TextMatcher;
     /// # use std::path::PathBuf;
     /// #
     /// # fn main() {
-    /// #     let mat = TextMatcher::new(0.8, 1).find_matches_in_file("qu du seujet 36", &PathBuf::from("./test_data/plzs/1201"), None).unwrap();
+    /// #     let mat = TextMatcher::new(0.8, 1, None).find_matches_in_file("qu du seujet 36", &PathBuf::from("./test_data/plzs/1201"), None).unwrap();
     /// #     assert_eq!(mat[0].text, "quai du seujet 36".to_string())
     /// # }
     /// ```
@@ -74,6 +106,7 @@ impl TextMatcher {
         file: &Path,
         is_first_let_eq: Option<bool>,
     ) -> io::Result<Vec<Candidate>> {
+        // TODO: make it concurrent
         let mut candidates = Vec::new(); // try to use .clear() here with &mut TextMatcher
         let reader = BufReader::new(File::open(file)?);
         let is_first_let_eq = is_first_let_eq.unwrap_or(false);
@@ -85,7 +118,7 @@ impl TextMatcher {
                 continue;
             }
             // TODO: think on removing punctuations while comparing strings, i.e.: candidate_text.replace(PUNCTUATIONS, "").replace('/', "")
-            let similarity = strsim::normalized_levenshtein(text, &candidate_txt);
+            let similarity = (self.search_func)(text, &candidate_txt);
             if similarity - self.sensitivity.value > 0.0 {
                 candidates.push(Candidate {
                     text: candidate_txt,
@@ -100,12 +133,14 @@ impl TextMatcher {
 
     /// Search through files in directory for candidates each on new line
     ///
+    /// # Examples
+    ///
     /// ```rust
     /// # use text_matcher_rs::TextMatcher;
     /// # use std::path::PathBuf;
     /// #
     /// # fn main() {
-    /// #     let mat = TextMatcher::find_matches_in_dir(0.8, 1, "qu du seujet 36", &PathBuf::from("./test_data/plzs/"), None, None);
+    /// #     let mat = TextMatcher::find_matches_in_dir(0.8, 1, "qu du seujet 36", &PathBuf::from("./test_data/plzs/"), None, None, None);
     /// #     assert_eq!(mat[0].text, "quai du seujet 36".to_string())
     /// # }
     /// ```
@@ -116,6 +151,7 @@ impl TextMatcher {
         path_to_dir: &Path,
         num_of_threads: Option<usize>,
         is_first_let_eq: Option<bool>,
+        search_method: Option<SearchMethod>,
     ) -> Vec<Candidate> {
         let matches: Arc<Mutex<Vec<Candidate>>> = Arc::new(Mutex::new(Vec::new()));
         let pool = ThreadPool::new(
@@ -128,7 +164,7 @@ impl TextMatcher {
         {
             let text = text.to_string();
             let matches = matches.clone();
-            let matcher = TextMatcher::new(sensitivity, num_to_keep);
+            let matcher = TextMatcher::new(sensitivity, num_to_keep, search_method.clone());
             pool.execute(move || {
                 if let Ok(candidates) =
                     matcher.find_matches_in_file(&text, &file.path(), is_first_let_eq)
@@ -144,5 +180,81 @@ impl TextMatcher {
         let mut matches = matches.lock().unwrap().to_vec();
         matches.sort_by(|lhs, rhs| rhs.partial_cmp(lhs).unwrap());
         matches[..cmp::min(num_to_keep, matches.len())].to_vec()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    const DATA_FILE: &str = "./test_data/plzs/1201";
+    const DATA_DIR: &str = "./test_data/plzs/";
+
+    #[test]
+    #[should_panic(expected = "should be larger or equal than")]
+    fn sensitivity_lower_than_zero() {
+        Sensitivity::new(-1.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "should be lower or equal than")]
+    fn sensitivity_larger_than_one() {
+        Sensitivity::new(1.1);
+    }
+
+    #[test]
+    fn high_sensitivity() {
+        let matches = TextMatcher::new(0.99, 5, None)
+            .find_matches_in_file("qu du seujet 36", &PathBuf::from(DATA_FILE), Some(true))
+            .unwrap();
+        assert_eq!(
+            matches.len(),
+            0,
+            "Expected empty Vec, but value was {:?}",
+            matches
+        );
+    }
+
+    #[test]
+    fn zero_to_keep() {
+        let matches = TextMatcher::new(0.7, 0, None)
+            .find_matches_in_file("qu du seujet 36", &PathBuf::from(DATA_FILE), Some(true))
+            .unwrap();
+        assert_eq!(matches.len(), 0);
+    }
+
+    fn assert_candidate(expected: &str, actual: &Candidate) {
+        let sim_lower_threshold = 0.7;
+        assert_eq!(expected.to_string(), actual.text);
+        assert!(
+            actual.similarity > sim_lower_threshold,
+            "Similarity expected > {}, but value was {}",
+            sim_lower_threshold,
+            actual.similarity
+        );
+    }
+
+    #[test]
+    fn nomal_sensitivity() {
+        let best_match = &TextMatcher::new(0.7, 5, None)
+            .find_matches_in_file("qu du seujet 36", &PathBuf::from(DATA_FILE), Some(true))
+            .unwrap()[0];
+        assert_candidate("quai du seujet 36", best_match);
+    }
+
+    #[test]
+    #[ignore]
+    fn find_in_dir() {
+        let best_match = &TextMatcher::find_matches_in_dir(
+            0.1,
+            5,
+            "qu du seujet 36",
+            &PathBuf::from(DATA_DIR),
+            Some(4),
+            Some(true),
+            None,
+        )[0];
+        assert_candidate("quai du seujet 36", best_match);
     }
 }
