@@ -24,7 +24,7 @@ pub enum SearchAlgo {
 
 impl Default for SearchAlgo {
     fn default() -> Self {
-        Self::Jaro
+        Self::Levenshtein
     }
 }
 
@@ -74,12 +74,12 @@ impl TextMatcher {
     ///
     /// # Panics
     /// Panics if the sensitivity value is lower than 0.0 or larger than 1.0
-    pub fn new(sensitivity: f64, num_to_keep: usize, search_algo: Option<SearchAlgo>) -> Self {
+    pub fn new(sensitivity: f64, num_to_keep: usize, search_algo: SearchAlgo) -> Self {
         // TODO: add Sensitivity as param instead of f64
         Self {
             sensitivity: Sensitivity::new(sensitivity),
             num_to_keep,
-            search_func: search_algo.unwrap_or_default().get_func(),
+            search_func: search_algo.get_func(),
         }
     }
 
@@ -88,11 +88,11 @@ impl TextMatcher {
     /// # Examples
     ///
     /// ```rust
-    /// # use text_matcher_rs::TextMatcher;
+    /// # use text_matcher_rs::{TextMatcher, SearchAlgo};
     /// # use std::path::PathBuf;
     /// #
     /// # fn main() {
-    /// #     let mat = TextMatcher::new(0.8, 1, None).find_matches_in_file("qu du seujet 36", &PathBuf::from("./test_data/plzs/1201"), None).unwrap();
+    /// #     let mat = TextMatcher::new(0.8, 1, SearchAlgo::default()).find_matches_in_file("qu du seujet 36", &PathBuf::from("./test_data/plzs/1201"), None).unwrap();
     /// #     assert_eq!(mat[0].text, "quai du seujet 36".to_string())
     /// # }
     /// ```
@@ -136,11 +136,11 @@ impl TextMatcher {
     /// # Examples
     ///
     /// ```rust
-    /// # use text_matcher_rs::TextMatcher;
+    /// # use text_matcher_rs::{TextMatcher, SearchAlgo};
     /// # use std::path::PathBuf;
     /// #
     /// # fn main() {
-    /// #     let mat = TextMatcher::find_matches_in_dir(0.8, 1, "qu du seujet 36", &PathBuf::from("./test_data/plzs/"), None, None, None);
+    /// #     let mat = TextMatcher::find_matches_in_dir(0.8, 1, "qu du seujet 36", &PathBuf::from("./test_data/plzs/"), None, None, SearchAlgo::default());
     /// #     assert_eq!(mat[0].text, "quai du seujet 36".to_string())
     /// # }
     /// ```
@@ -151,7 +151,7 @@ impl TextMatcher {
         path_to_dir: &Path,
         num_of_threads: Option<usize>,
         is_first_let_eq: Option<bool>,
-        search_method: Option<SearchAlgo>,
+        search_method: SearchAlgo,
     ) -> Vec<Candidate> {
         let matches: Arc<Mutex<Vec<Candidate>>> = Arc::new(Mutex::new(Vec::new()));
         let pool = ThreadPool::new(
@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn high_sensitivity() {
-        let matches = TextMatcher::new(0.99, 5, None)
+        let matches = TextMatcher::new(0.99, 5, SearchAlgo::default())
             .find_matches_in_file("qu du seujet 36", &PathBuf::from(DATA_FILE), Some(true))
             .unwrap();
         assert_eq!(
@@ -218,7 +218,7 @@ mod tests {
 
     #[test]
     fn zero_to_keep() {
-        let matches = TextMatcher::new(0.7, 0, None)
+        let matches = TextMatcher::new(0.7, 0, SearchAlgo::default())
             .find_matches_in_file("qu du seujet 36", &PathBuf::from(DATA_FILE), Some(true))
             .unwrap();
         assert_eq!(matches.len(), 0);
@@ -237,7 +237,7 @@ mod tests {
 
     #[test]
     fn nomal_sensitivity() {
-        let best_match = &TextMatcher::new(0.7, 5, None)
+        let best_match = &TextMatcher::new(0.7, 5, SearchAlgo::default())
             .find_matches_in_file("qu du seujet 36", &PathBuf::from(DATA_FILE), Some(true))
             .unwrap()[0];
         assert_candidate("quai du seujet 36", best_match);
@@ -253,7 +253,7 @@ mod tests {
             &PathBuf::from(DATA_DIR),
             Some(4),
             Some(true),
-            None,
+            SearchAlgo::default(),
         )[0];
         assert_candidate("quai du seujet 36", best_match);
     }
