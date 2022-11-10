@@ -2,9 +2,10 @@
 
 // TODO: if more than 1 candidate with the same similarity for places
 // TODO: add PLZ and Place structs and define preprocessing/to dir/file inside structs (maybe generics?)
+#![allow(dead_code)]
 use crate::{
     candidate::Candidate,
-    text_matcher::{SearchAlgo, TextMatcher},
+    text_matcher::{MatchAlgo, TextMatcher, PUNCTUATIONS},
 };
 
 use regex::Regex;
@@ -17,9 +18,6 @@ const NUM_TO_KEEP: usize = 50;
 const PATH_TO_PLACES: &str = "./test_data/places.txt";
 pub(crate) const PATH_TO_PLZS_DIR: &str = "./test_data/plzs/";
 pub(crate) const PATH_TO_PLACES_DIR: &str = "./test_data/places/";
-const PUNCTUATIONS: &[char] = &[
-    '_', '\\', '(', ')', ',', '\"', '.', ';', ':', '\'', '-', '/',
-];
 
 pub struct SwissStreet {
     pub value: String,
@@ -55,7 +53,7 @@ impl SwissStreet {
             street = format!("{} {}", parts.collect::<Vec<&str>>().join(" "), number);
         }
         // Matches: eisfeldstrasse 21/23, milchstrasse 2-10a, milchstrasse 2,10a, bernstrasse 7 8
-        match Regex::new(r"(.*?\s\d*?\s?[a-zA-Z]?)[\./,\-\+\s]")
+        match Regex::new(r"(.*?\s\d*?\s?[a-zA-Z]?)[\./,\-\+\s–+]")
             .unwrap()
             .find(&street)
         {
@@ -170,7 +168,7 @@ impl StreetMatcher {
             dir,
             None,
             Some(is_first_letters_eq),
-            SearchAlgo::default(),
+            MatchAlgo::default(),
         )
     }
 
@@ -199,7 +197,7 @@ impl StreetMatcher {
     ) -> MatchedStreet {
         file.map_or_else(
             || self._search_in_dir(street, dir, None),
-            |file| match TextMatcher::new(self.file_sensitivity, NUM_TO_KEEP, SearchAlgo::default())
+            |file| match TextMatcher::new(self.file_sensitivity, NUM_TO_KEEP, MatchAlgo::default())
                 .find_matches_in_file(&street.value, &file, None)
             {
                 Ok(mat) if !mat.is_empty() => MatchedStreet::new(mat[0].text.clone(), file),
@@ -275,7 +273,7 @@ impl StreetMatcher {
         match TextMatcher::new(
             PLACE_SEARCH_SENSITIVITY,
             NUM_TO_KEEP,
-            SearchAlgo::JaroWinkler,
+            MatchAlgo::JaroWinkler,
         )
         .find_matches_in_file(
             &place.trim().to_lowercase(),

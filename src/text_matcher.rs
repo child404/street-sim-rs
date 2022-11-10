@@ -1,40 +1,47 @@
 //! This module creates API and algorithm of matching Candidates from file input.
 //! Candidates in file should be separated by newline
+#![allow(dead_code)]
 use crate::candidate::Candidate;
 use std::{
     cmp,
     fs::{self, File},
     io::{self, prelude::*, BufReader},
-    path::Path,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
     thread,
 };
 use threadpool::ThreadPool;
 use unicode_segmentation::UnicodeSegmentation;
 
-type SearchFunc = fn(&str, &str) -> f64;
+pub(crate) const PUNCTUATIONS: &[char] = &[
+    '_', '\\', '(', ')', ',', '\"', '.', ';', ':', '\'', '-', '/', '+', '–', ' ',
+];
+
+type MatchFunc = fn(&str, &str) -> f64;
 
 #[derive(Clone)]
-pub enum SearchAlgo {
+pub enum MatchAlgo {
     Levenshtein,
+    DamerauLevenshtein,
     JaroWinkler,
     Jaro,
     SorensenDice,
 }
 
-impl Default for SearchAlgo {
+impl Default for MatchAlgo {
     fn default() -> Self {
         Self::Levenshtein
     }
 }
 
-impl SearchAlgo {
-    pub fn get_func(&self) -> SearchFunc {
+impl MatchAlgo {
+    pub fn get_func(&self) -> MatchFunc {
         match self {
-            SearchAlgo::Levenshtein => strsim::normalized_levenshtein,
-            SearchAlgo::Jaro => strsim::jaro,
-            SearchAlgo::JaroWinkler => strsim::jaro_winkler,
-            SearchAlgo::SorensenDice => strsim::sorensen_dice,
+            MatchAlgo::Levenshtein => strsim::normalized_levenshtein,
+            MatchAlgo::Jaro => strsim::jaro,
+            MatchAlgo::JaroWinkler => strsim::jaro_winkler,
+            MatchAlgo::SorensenDice => strsim::sorensen_dice,
+            MatchAlgo::DamerauLevenshtein => strsim::normalized_damerau_levenshtein,
         }
     }
 }
@@ -64,7 +71,7 @@ impl Sensitivity {
 pub struct TextMatcher {
     pub sensitivity: Sensitivity,
     pub num_to_keep: usize,
-    pub search_func: SearchFunc,
+    pub match_func: MatchFunc,
 }
 
 impl TextMatcher {
@@ -74,13 +81,85 @@ impl TextMatcher {
     ///
     /// # Panics
     /// Panics if the sensitivity value is lower than 0.0 or larger than 1.0
-    pub fn new(sensitivity: f64, num_to_keep: usize, search_algo: SearchAlgo) -> Self {
+    pub fn new(sensitivity: f64, num_to_keep: usize, match_algo: MatchAlgo) -> Self {
         // TODO: add Sensitivity as param instead of f64
         Self {
             sensitivity: Sensitivity::new(sensitivity),
             num_to_keep,
-            search_func: search_algo.get_func(),
+            match_func: match_algo.get_func(),
         }
+    }
+
+    pub fn find_matches_from(&self, candidates: &[Candidate], text: &str) -> Vec<Candidate> {
+        let mut candidates = candidates
+            .iter()
+            .flat_map(|candidate| {
+                let similarity = (self.match_func)(text, &candidate.text.replace(PUNCTUATIONS, ""));
+                if similarity - self.sensitivity.value > 0.0 {
+                    Some(Candidate {
+                        similarity,
+                        ..candidate.clone()
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<Candidate>>();
+        candidates.sort_by(|lhs, rhs| rhs.partial_cmp(lhs).unwrap());
+        candidates[..cmp::min(self.num_to_keep, candidates.len())].to_vec()
+    }
+
+    pub fn cfind_matches_in_file(
+        sens: f64,
+        num_to_keep: usize,
+        text: &str,
+        file: &Path,
+        num_of_threads: Option<usize>,
+        match_algo: MatchAlgo,
+    ) -> io::Result<Vec<Candidate>> {
+        let lines = BufReader::new(File::open(file)?)
+            .lines()
+            .flatten()
+            .collect::<Vec<String>>();
+        let num_of_threads =
+            num_of_threads.unwrap_or_else(|| thread::available_parallelism().unwrap().get());
+
+        let candidates = Arc::new(Mutex::new(Vec::with_capacity(num_of_threads * num_to_keep)));
+        let sensitivity = Sensitivity::new(sens);
+        let match_func = match_algo.get_func();
+
+        let handles = lines
+            .chunks(lines.len() / num_of_threads + 1)
+            .map(|chunk| {
+                let candidates = candidates.clone();
+                let chunk = chunk.to_vec();
+                let text = text.to_string();
+                let file = file.to_path_buf();
+                thread::spawn(move || {
+                    let mut matches = Vec::with_capacity(chunk.len());
+                    for candidate in chunk {
+                        let similarity = (match_func)(&text, &candidate.replace(PUNCTUATIONS, ""));
+                        if similarity - sensitivity.value > 0.0 {
+                            matches.push(Candidate {
+                                text: candidate.to_string(),
+                                similarity,
+                                file_found: file.clone(),
+                            });
+                        }
+                    }
+                    matches.sort_by(|lhs, rhs| rhs.partial_cmp(lhs).unwrap());
+                    for candidate in &matches[..cmp::min(num_to_keep, matches.len())] {
+                        candidates.lock().unwrap().push(candidate.clone());
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+        for handle in handles {
+            handle.join().expect("undefined error with threads!");
+        }
+        let mut candidates = candidates.lock().unwrap().to_vec();
+        candidates.sort_by(|lhs, rhs| rhs.partial_cmp(lhs).unwrap());
+        Ok(candidates[..cmp::min(num_to_keep, candidates.len())].to_vec())
     }
 
     /// Search through file for candidates each on new line
@@ -118,7 +197,7 @@ impl TextMatcher {
                 continue;
             }
             // TODO: think on removing punctuations while comparing strings, i.e.: candidate_text.replace(PUNCTUATIONS, "").replace('/', "")
-            let similarity = (self.search_func)(text, &candidate_txt);
+            let similarity = (self.match_func)(text, &candidate_txt.replace(PUNCTUATIONS, ""));
             if similarity - self.sensitivity.value > 0.0 {
                 candidates.push(Candidate {
                     text: candidate_txt,
@@ -151,7 +230,7 @@ impl TextMatcher {
         path_to_dir: &Path,
         num_of_threads: Option<usize>,
         is_first_let_eq: Option<bool>,
-        search_method: SearchAlgo,
+        search_method: MatchAlgo,
     ) -> Vec<Candidate> {
         let matches: Arc<Mutex<Vec<Candidate>>> = Arc::new(Mutex::new(Vec::new()));
         let pool = ThreadPool::new(
@@ -205,7 +284,7 @@ mod tests {
 
     #[test]
     fn high_sensitivity() {
-        let matches = TextMatcher::new(0.99, 5, SearchAlgo::default())
+        let matches = TextMatcher::new(0.99, 5, MatchAlgo::default())
             .find_matches_in_file("qu du seujet 36", &PathBuf::from(DATA_FILE), Some(true))
             .unwrap();
         assert_eq!(
@@ -218,7 +297,7 @@ mod tests {
 
     #[test]
     fn zero_to_keep() {
-        let matches = TextMatcher::new(0.7, 0, SearchAlgo::default())
+        let matches = TextMatcher::new(0.7, 0, MatchAlgo::default())
             .find_matches_in_file("qu du seujet 36", &PathBuf::from(DATA_FILE), Some(true))
             .unwrap();
         assert_eq!(matches.len(), 0);
@@ -237,7 +316,7 @@ mod tests {
 
     #[test]
     fn nomal_sensitivity() {
-        let best_match = &TextMatcher::new(0.7, 5, SearchAlgo::default())
+        let best_match = &TextMatcher::new(0.7, 5, MatchAlgo::default())
             .find_matches_in_file("qu du seujet 36", &PathBuf::from(DATA_FILE), Some(true))
             .unwrap()[0];
         assert_candidate("quai du seujet 36", best_match);
@@ -253,7 +332,7 @@ mod tests {
             &PathBuf::from(DATA_DIR),
             Some(4),
             Some(true),
-            SearchAlgo::default(),
+            MatchAlgo::default(),
         )[0];
         assert_candidate("quai du seujet 36", best_match);
     }

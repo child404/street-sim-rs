@@ -8,4 +8,4 @@ mod text_matcher;
 
 pub use candidate::Candidate;
 pub use street_matcher::{StreetMatcher, SwissStreet};
-pub use text_matcher::{SearchAlgo, Sensitivity, TextMatcher};
+pub use text_matcher::{MatchAlgo, Sensitivity, TextMatcher};
