@@ -3,6 +3,15 @@ use std::path::PathBuf;
 use text_matcher_rs::{MatchAlgo, StreetMatcher, SwissStreet, TextMatcher};
 
 fn bench_street_matcher(c: &mut Criterion) {
+    c.bench_function("StreetMatcher new approach", |b| {
+        b.iter(|| {
+            StreetMatcher::default().find_matches(
+                black_box(&SwissStreet::new("Mühlematt 7-11 (Emmenbrücke)")),
+                black_box(None),
+            );
+        })
+    });
+
     c.bench_function("TextMatcher cfind", |b| {
         b.iter(|| {
             let street = SwissStreet::new("ch de saint-cierges 3,fas23dfsfsdf").value;

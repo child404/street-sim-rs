@@ -95,6 +95,26 @@ impl TextMatcher {
         }
     }
 
+    pub fn find_matches_from_str(&self, candidates: &[String], text: &str) -> Vec<Candidate> {
+        let mut candidates = candidates
+            .iter()
+            .flat_map(|candidate| {
+                let similarity = (self.match_func)(text, &candidate.replace(PUNCTUATIONS, ""));
+                if similarity - self.sensitivity.value > 0.0 {
+                    Some(Candidate {
+                        text: candidate.to_owned(),
+                        similarity,
+                        file_found: PathBuf::new(),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<Candidate>>();
+        candidates.sort_by(|lhs, rhs| rhs.partial_cmp(lhs).unwrap());
+        candidates[..cmp::min(self.num_to_keep, candidates.len())].to_vec()
+    }
+
     pub fn find_matches_from(&self, candidates: &[Candidate], text: &str) -> Vec<Candidate> {
         let mut candidates = candidates
             .iter()

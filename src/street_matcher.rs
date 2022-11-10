@@ -9,7 +9,11 @@ use crate::{
 };
 
 use regex::Regex;
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
+use toml::Value;
 
 const SENSITIVITY: f64 = 0.6;
 const FILE_SENSITIVITY: f64 = 0.87;
@@ -187,6 +191,88 @@ impl StreetMatcher {
             }
         };
         MatchedStreet::from_candidates(&candidates, file_candidate)
+    }
+
+    pub fn find_matches(
+        &self,
+        street: &SwissStreet,
+        location_key: Option<String>,
+    ) -> (Option<String>, Option<String>) {
+        let potential_street_names = {
+            let potential_street_names = TextMatcher::cfind_matches_in_file(
+                0.6,
+                500,
+                &street.value,
+                &PathBuf::from("./test_data/streets_data/street_names.txt"),
+                None,
+                MatchAlgo::JaroWinkler,
+            )
+            .expect("street_names.txt file exists");
+            TextMatcher::new(0.6, 1, MatchAlgo::Levenshtein)
+                .find_matches_from(&potential_street_names, &street.value)
+        };
+        if potential_street_names.is_empty() {
+            return (None, None); // probably, such street name doesn't exist
+        }
+        let file_name = format!(
+            "./test_data/streets_data/{}.toml",
+            potential_street_names[0].text.replace('/', "%2C")
+        );
+        let toml_values =
+            toml::from_str::<Value>(&fs::read_to_string(file_name).expect("street file exists"))
+                .expect("correct toml signature");
+        if let Some(location_key) = location_key {
+            let (streets_to_match, found_for_loc) =
+                if let Some(values) = toml_values.get(&location_key) {
+                    (
+                        values
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .map(|x| x.to_string())
+                            .collect::<Vec<String>>(),
+                        Some(location_key),
+                    )
+                } else {
+                    let mut streets = toml_values
+                        .as_table()
+                        .expect("correct table structure")
+                        .iter()
+                        .flat_map(|(_, v)| v.as_array().unwrap())
+                        .map(|x| x.to_string())
+                        .collect::<Vec<String>>();
+                    streets.sort();
+                    streets.dedup();
+                    (streets, None)
+                };
+            let mat = TextMatcher::new(0.6, 10, MatchAlgo::Levenshtein)
+                .find_matches_from_str(&streets_to_match, &street.value);
+            if !mat.is_empty() {
+                (Some(mat[0].text.to_owned()), found_for_loc)
+            } else {
+                (None, None)
+            }
+        } else {
+            let mut streets_to_match = toml_values
+                .as_table()
+                .expect("correct table structure")
+                .iter()
+                .flat_map(|(_, v)| v.as_array().unwrap())
+                .map(|x| x.to_string())
+                .collect::<Vec<String>>();
+            streets_to_match.sort();
+            streets_to_match.dedup();
+            let mat = TextMatcher::new(0.6, 10, MatchAlgo::Levenshtein)
+                .find_matches_from_str(&streets_to_match, &street.value);
+            (
+                if !mat.is_empty() {
+                    Some(mat[0].text.to_owned())
+                } else {
+                    None
+                },
+                None,
+            )
+        }
     }
 
     fn _find_matches(

@@ -3,9 +3,9 @@ mod candidate;
 mod street_matcher;
 mod text_matcher;
 
-use text_matcher_rs::{MatchAlgo, SwissStreet, TextMatcher};
+use text_matcher_rs::{MatchAlgo, TextMatcher};
 
-use crate::street_matcher::{MatchedStreet, StreetMatcher};
+use crate::street_matcher::{MatchedStreet, StreetMatcher, SwissStreet};
 use std::panic;
 use std::path::PathBuf;
 use std::{
@@ -33,7 +33,7 @@ fn join_to_row(index: &str, street: &str, place: &str, mstreet: MatchedStreet) -
 
 fn main() {
     // TODO: compare "Siders/Sierre" to places.txt
-    let streets = vec![
+    let streets = [
         "Mühlematt 7-11 (Emmenbrücke)",
         "Meierhofstr. 3",
         "Meierhofstr. 1",
@@ -77,21 +77,24 @@ fn main() {
         "Avenue du Bietschhorn 21a–d,23a–b (Les Aquarelles)",
     ];
     for street in streets {
-        let street = SwissStreet::new(street).value;
-        println!("{}", &street);
-        let mat = TextMatcher::cfind_matches_in_file(
-            0.6,
-            500,
-            &street,
-            &PathBuf::from("./test_data/street_names.txt"),
-            Some(8),
-            MatchAlgo::JaroWinkler,
-        )
-        .unwrap();
-        println!("{:?}", &mat[..std::cmp::min(10, mat.len())]);
-        let matcher = TextMatcher::new(0.6, 1, MatchAlgo::Levenshtein);
-        let mat2 = matcher.find_matches_from(&mat, &street);
-        println!("{:?}", mat2);
+        let street = SwissStreet::new(street);
+        println!("{:?}", &street.value);
+        let mat = StreetMatcher::default().find_matches(&street, None);
+        println!("{:?}", mat);
+        // println!("{}", &street);
+        // let mat = TextMatcher::cfind_matches_in_file(
+        //     0.6,
+        //     500,
+        //     &street,
+        //     &PathBuf::from("./test_data/street_names.txt"),
+        //     Some(8),
+        //     MatchAlgo::JaroWinkler,
+        // )
+        // .unwrap();
+        // println!("{:?}", &mat[..std::cmp::min(10, mat.len())]);
+        // let matcher = TextMatcher::new(0.6, 1, MatchAlgo::Levenshtein);
+        // let mat2 = matcher.find_matches_from(&mat, &street);
+        // println!("{:?}", mat2);
     }
     // let reader = BufReader::new(File::open("./test_data/real_data.csv").expect("file exists"));
     // let street_matcher = StreetMatcher::default();
