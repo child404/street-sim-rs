@@ -34,6 +34,13 @@ fn join_to_row(index: &str, street: &str, place: &str, mstreet: MatchedStreet) -
 fn main() {
     // TODO: compare "Siders/Sierre" to places.txt
     let streets = vec![
+        "Mühlematt 7-11 (Emmenbrücke)",
+        "Meierhofstr. 3",
+        "Meierhofstr. 1",
+        "Meierhofstr. 5",
+        "Hauptstr. 5",
+        "Hohenrainstr. 10-14",
+        "Bernstr. 8",
         "Neuheim 8+10",
         "Hohenrainstrasse 10+12+14",
         "St. Cergue 11",
@@ -78,7 +85,7 @@ fn main() {
             &street,
             &PathBuf::from("./test_data/street_names.txt"),
             Some(8),
-            MatchAlgo::Jaro,
+            MatchAlgo::JaroWinkler,
         )
         .unwrap();
         println!("{:?}", &mat[..std::cmp::min(10, mat.len())]);

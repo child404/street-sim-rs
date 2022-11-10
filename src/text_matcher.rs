@@ -26,6 +26,7 @@ pub enum MatchAlgo {
     JaroWinkler,
     Jaro,
     SorensenDice,
+    Osa,
 }
 
 impl Default for MatchAlgo {
@@ -42,6 +43,10 @@ impl MatchAlgo {
             MatchAlgo::JaroWinkler => strsim::jaro_winkler,
             MatchAlgo::SorensenDice => strsim::sorensen_dice,
             MatchAlgo::DamerauLevenshtein => strsim::normalized_damerau_levenshtein,
+            MatchAlgo::Osa => |a, b| {
+                1.0 - (strsim::osa_distance(a, b) as f64)
+                    / (a.chars().count().max(b.chars().count()) as f64)
+            },
         }
     }
 }

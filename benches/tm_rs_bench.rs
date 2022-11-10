@@ -11,8 +11,8 @@ fn bench_street_matcher(c: &mut Criterion) {
                 black_box(100),
                 black_box(&street),
                 black_box(&PathBuf::from("./test_data/street_names.txt")),
-                black_box(Some(1)),
-                black_box(MatchAlgo::Jaro),
+                black_box(Some(8)),
+                black_box(MatchAlgo::JaroWinkler),
             )
             .unwrap();
             let matcher = TextMatcher::new(
