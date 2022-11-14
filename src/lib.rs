@@ -1,11 +1,11 @@
 //! This crate is aimed to be a simple and fast solution for text-matching from the file with
 //! more than 2 millions of lines, especially for streets in Switzerland.
 //!
-//! Also, it serves as my first Rust project used for work and published out to the people
+//! It serves as my first Rust project used for work and published out to the people
 mod candidate;
-mod street_matcher;
-mod text_matcher;
+pub mod street_sim;
+pub mod text_sim;
 
-pub use candidate::Candidate;
-pub use street_matcher::{StreetMatcher, SwissStreet};
-pub use text_matcher::{SearchAlgo, Sensitivity, TextMatcher};
+pub use candidate::{Candidate, Sens, Text};
+pub use street_sim::{Place, Plz, Street};
+pub use text_sim::{Config, SimAlgo};

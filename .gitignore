@@ -1,6 +1,5 @@
 /target
 /Cargo.lock
-/test_data/plzs/
-/test_data/places/
-/test_data/streets_data/
-/test_data/streets_data.zip
+/test_data/*
+!/test_data/places.txt
+!/test_data/streets_data.zip
