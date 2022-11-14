@@ -1,7 +1,5 @@
 //! This module provides matching on official Switzerland streets
 
-// TODO: if more than 1 candidate with the same similarity for places
-// #![allow(dead_code)]
 use crate::{
     candidate::{Candidate, Sens, SimResult, Text},
     text_sim::{self, Config, SimAlgo},

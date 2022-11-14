@@ -1,6 +1,5 @@
 //! This module creates API and algorithm of matching Candidates from file input.
 //! Candidates in file should be separated by newline
-// #![allow(dead_code)]
 use crate::candidate::{Candidate, Candidates, Sens, SimResult, Text};
 use std::{
     fs::File,
