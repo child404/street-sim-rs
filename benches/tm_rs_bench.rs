@@ -15,7 +15,8 @@ fn bench_street_matcher(c: &mut Criterion) {
                 black_box(&Street::new("Mühlematt 7-11 (Emmenbrücke)", None).unwrap()),
                 black_box(None),
                 black_box(None),
-            );
+            )
+            .unwrap();
         })
     });
 

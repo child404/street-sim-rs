@@ -6,7 +6,7 @@ use crate::{
 };
 
 use regex::Regex;
-use std::{fs, path::PathBuf};
+use std::{fs, io, path::PathBuf};
 use toml::Value;
 
 const PLACE_SENS: f64 = 0.6;
@@ -132,18 +132,24 @@ struct StreetFile {
 }
 
 impl StreetFile {
-    pub fn new(street: &Street) -> Self {
+    pub fn new(street: &Street) -> io::Result<Self> {
         let filename = format!(
             "{}/{}.toml",
             PATH_TO_STREETS_DATA,
             street.street_name.replace('/', "%2C")
         );
-        Self {
-            values: toml::from_str::<Value>(
-                &fs::read_to_string(filename).expect("street file exists"),
-            )
-            .expect("correct toml signature"),
-        }
+        Ok(Self {
+            values: toml::from_str::<Value>(&fs::read_to_string(filename)?)?,
+        })
+    }
+
+    #[inline]
+    fn value_to_string_iter(value: &Value) -> impl Iterator<Item = String> + '_ {
+        value
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.to_string().replace('\"', ""))
     }
 
     #[inline]
@@ -153,8 +159,7 @@ impl StreetFile {
             .as_table()
             .expect("correct table structure")
             .iter()
-            .flat_map(|(_, v)| v.as_array().unwrap())
-            .map(|x| x.to_string().replace('\"', ""))
+            .flat_map(|(_, v)| Self::value_to_string_iter(v))
             .collect::<Vec<String>>();
         values.sort();
         values.dedup();
@@ -167,14 +172,9 @@ impl StreetFile {
     {
         self.values.get(&location.to_string()).map_or_else(
             || (self.get_all_values(), None),
-            |values| {
+            |v| {
                 (
-                    values
-                        .as_array()
-                        .unwrap()
-                        .iter()
-                        .map(|x| x.to_string().replace('\"', ""))
-                        .collect::<Vec<String>>(),
+                    Self::value_to_string_iter(v).collect::<Vec<String>>(),
                     Some(location),
                 )
             },
@@ -241,19 +241,19 @@ pub fn find_matches<T>(
     street: &Street,
     location: Option<T>,
     sens: Option<Sens>,
-) -> CandidateByLocation<T>
+) -> io::Result<CandidateByLocation<T>>
 where
     T: ToString,
 {
     let cfg = Config::new(sens.unwrap_or_default(), 1, SimAlgo::default(), None);
-    let sfile = StreetFile::new(street);
-    location.map_or_else(
+    let sfile = StreetFile::new(street)?;
+    Ok(location.map_or_else(
         || cmp_with_arr(&sfile.get_all_values(), street, &cfg, None),
         |location| {
             let (streets_to_match, location) = sfile.try_get_values_by(location);
             cmp_with_arr(&streets_to_match, street, &cfg, location)
         },
-    )
+    ))
 }
 
 #[cfg(test)]
@@ -288,7 +288,8 @@ mod tests {
             &Street::new(STREET_WITHOUT_NUMBERS, None).unwrap(),
             None,
             None,
-        );
+        )
+        .unwrap();
     }
 
     fn assert_clean_street(expected_street: &str, street_to_clean: &str) {
@@ -319,7 +320,8 @@ mod tests {
                 &Street::new("ch de saint-cierges 3", None).unwrap(),
                 Some(location.to_owned()),
                 None
-            ),
+            )
+            .unwrap(),
             (
                 Some(Candidate::from("chemin de saint-cierges 3")),
                 Some(location)
@@ -336,7 +338,7 @@ mod tests {
             None,
         );
         assert_eq!(
-            mat,
+            mat.unwrap(),
             (Some(Candidate::from("chemin de saint-cierges 3")), None)
         );
     }
@@ -350,7 +352,7 @@ mod tests {
             None,
         );
         assert_eq!(
-            mat,
+            mat.unwrap(),
             (Some(Candidate::from("quai du seujet 36")), Some(location))
         );
     }
@@ -359,7 +361,10 @@ mod tests {
     #[ignore]
     fn match_without_plz() {
         let mat = find_matches::<Plz>(&Street::new("qu du seujet 36", None).unwrap(), None, None);
-        assert_eq!(mat, (Some(Candidate::from("quai du seujet 36")), None));
+        assert_eq!(
+            mat.unwrap(),
+            (Some(Candidate::from("quai du seujet 36")), None)
+        );
     }
 
     #[test]
@@ -370,7 +375,10 @@ mod tests {
             Some(Plz::new(1231231)),
             None,
         );
-        assert_eq!(mat, (Some(Candidate::from("quai du seujet 36")), None));
+        assert_eq!(
+            mat.unwrap(),
+            (Some(Candidate::from("quai du seujet 36")), None)
+        );
     }
 
     #[test]
@@ -383,7 +391,7 @@ mod tests {
             None,
         );
         assert_eq!(
-            mat,
+            mat.unwrap(),
             (Some(Candidate::from("quai du seujet 36")), Some(location))
         );
     }
@@ -392,7 +400,10 @@ mod tests {
     #[ignore]
     fn match_with_wrong_first_word_no_plz() {
         let mat = find_matches::<Plz>(&Street::new("uai du seujet 36", None).unwrap(), None, None);
-        assert_eq!(mat, (Some(Candidate::from("quai du seujet 36")), None));
+        assert_eq!(
+            mat.unwrap(),
+            (Some(Candidate::from("quai du seujet 36")), None)
+        );
     }
 
     #[test]
@@ -404,6 +415,9 @@ mod tests {
             Some(location),
             None,
         );
-        assert_eq!(mat, (Some(Candidate::from("quai du seujet 36")), None));
+        assert_eq!(
+            mat.unwrap(),
+            (Some(Candidate::from("quai du seujet 36")), None)
+        );
     }
 }
