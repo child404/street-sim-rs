@@ -144,12 +144,12 @@ impl StreetFile {
     }
 
     #[inline]
-    fn value_to_string_iter(value: &Value) -> impl Iterator<Item = String> + '_ {
+    fn string_iter_from(value: &Value) -> impl Iterator<Item = String> + '_ {
         value
             .as_array()
             .unwrap()
             .iter()
-            .map(|x| x.to_string().replace('\"', ""))
+            .map(|v| v.to_string().replace('\"', ""))
     }
 
     #[inline]
@@ -159,7 +159,7 @@ impl StreetFile {
             .as_table()
             .expect("correct table structure")
             .iter()
-            .flat_map(|(_, v)| Self::value_to_string_iter(v))
+            .flat_map(|(_, v)| Self::string_iter_from(v))
             .collect::<Vec<String>>();
         values.sort();
         values.dedup();
@@ -172,12 +172,7 @@ impl StreetFile {
     {
         self.values.get(&location.to_string()).map_or_else(
             || (self.get_all_values(), None),
-            |v| {
-                (
-                    Self::value_to_string_iter(v).collect::<Vec<String>>(),
-                    Some(location),
-                )
-            },
+            |v| (Self::string_iter_from(v).collect(), Some(location)),
         )
     }
 }
