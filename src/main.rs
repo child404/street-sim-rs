@@ -4,7 +4,7 @@ mod street_sim;
 mod text_sim;
 
 use candidate::Candidate;
-use text_matcher_rs::{Plz, SimAlgo};
+use street_sim_rs::{Plz, SimAlgo};
 
 use std::panic;
 use std::path::PathBuf;

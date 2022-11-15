@@ -10,6 +10,8 @@ pub(crate) const PUNCTUATIONS: &[char] = &[
 ];
 const SENS: f64 = 0.6;
 
+pub type SimResult = Result<Vec<Candidate>, Error>;
+
 #[derive(Debug)]
 pub enum Error {
     Io(io::Error),
@@ -32,10 +34,10 @@ pub struct Text {
 }
 
 impl Text {
-    pub fn new(text: &str) -> Self {
+    pub fn new(text: String) -> Self {
         Self {
-            init: text.to_string(),
             cleaned: text.to_lowercase().replace(PUNCTUATIONS, ""),
+            init: text,
         }
     }
 }
@@ -45,8 +47,6 @@ impl From<io::Error> for Error {
         Self::Io(err)
     }
 }
-
-pub type SimResult = Result<Vec<Candidate>, Error>;
 
 #[derive(Clone, Copy)]
 pub struct Sens(pub f64);
@@ -102,18 +102,13 @@ impl PartialOrd for Candidate {
     }
 }
 
-pub struct Candidates;
-
-impl Candidates {
-    #[inline]
-    pub fn from(candidates: &mut Vec<Candidate>, num_to_keep: usize) -> SimResult {
-        candidates.sort_by(|lhs, rhs| rhs.partial_cmp(lhs).unwrap());
-        let values = candidates[..cmp::min(num_to_keep, candidates.len())].to_vec();
-        if !values.is_empty() {
-            Ok(values)
-        } else {
-            Err(Error::NotFound)
-        }
+#[inline]
+pub(crate) fn try_sort_and_keep(values: &mut Vec<Candidate>, num_to_keep: usize) -> SimResult {
+    if !values.is_empty() {
+        values.sort_by(|lhs, rhs| rhs.partial_cmp(lhs).unwrap());
+        Ok(values[..cmp::min(num_to_keep, values.len())].to_vec())
+    } else {
+        Err(Error::NotFound)
     }
 }
 

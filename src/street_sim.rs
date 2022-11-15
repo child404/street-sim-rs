@@ -21,8 +21,12 @@ impl Place {
     pub fn new(value: &str) -> Self {
         let cfg = Config::new(Sens::new(PLACE_SENS), 1, SimAlgo::JaroWinkler, None);
         Self(
-            text_sim::fast_cmp_with_file(&Text::new(value), &PathBuf::from(PATH_TO_PLACES), &cfg)
-                .map_or(value.to_owned(), |candidates| candidates[0].text.to_owned()),
+            text_sim::fast_cmp_with_file(
+                &Text::new(value.to_string()),
+                &PathBuf::from(PATH_TO_PLACES),
+                &cfg,
+            )
+            .map_or(String::new(), |candidates| candidates[0].text.clone()),
         )
     }
 }
@@ -62,7 +66,7 @@ impl Street {
                 street
             );
         }
-        let street = Text::new(&Self::clean(street));
+        let street = Text::new(Self::clean(street));
         find_street_name(&street, sens.unwrap_or_default())
             .ok()
             .map(|candidates| Self {
@@ -115,8 +119,8 @@ fn filter_distant_streets(street: &Text, sens: Sens) -> Vec<String> {
     let cfg = Config::new(sens, 500, SimAlgo::Jaro, None);
     text_sim::fast_cmp_with_file(street, &PathBuf::from(PATH_TO_STREET_NAMES), &cfg)
         .unwrap_or_default()
-        .iter()
-        .map(|c| c.text.to_owned())
+        .into_iter()
+        .map(|c| c.text)
         .collect()
 }
 
@@ -142,6 +146,7 @@ impl StreetFile {
         }
     }
 
+    #[inline]
     fn get_all_values(&self) -> Vec<String> {
         let mut values = self
             .values
@@ -210,7 +215,7 @@ where
 /// # Examples
 ///
 /// ```rust
-/// # use text_matcher_rs::{Plz, Street, street_sim};
+/// # use street_sim_rs::{Plz, Street, street_sim};
 /// #
 /// # fn main() {
 /// #     let street = Street::new("qu du seujet 36", None).unwrap();
@@ -220,7 +225,7 @@ where
 /// ```
 ///
 /// ```rust
-/// # use text_matcher_rs::{Place, Street, street_sim};
+/// # use street_sim_rs::{Place, Street, street_sim};
 /// #
 /// # fn main() {
 /// #     let street = Street::new("aarstrasse 76", None).unwrap();
@@ -241,11 +246,11 @@ where
     T: ToString,
 {
     let cfg = Config::new(sens.unwrap_or_default(), 1, SimAlgo::default(), None);
-    let street_file = StreetFile::new(street);
+    let sfile = StreetFile::new(street);
     location.map_or_else(
-        || cmp_with_arr(&street_file.get_all_values(), street, &cfg, None),
+        || cmp_with_arr(&sfile.get_all_values(), street, &cfg, None),
         |location| {
-            let (streets_to_match, location) = street_file.try_get_values_by(location);
+            let (streets_to_match, location) = sfile.try_get_values_by(location);
             cmp_with_arr(&streets_to_match, street, &cfg, location)
         },
     )

@@ -1,16 +1,16 @@
 [package]
-name = "py-text-matcher-rs"
+name = "py-street-sim-rs"
 version = "0.1.0"
 authors = ["child404 <vladrez1703@gmail.com>"]
 edition = "2021"
 license = "MIT"
-keywords = ["text_matcher_rs"]
+keywords = ["street_sim_rs"]
 readme = "README.md"
 homepage = "https://github.com/child404/text-matcher-rs"
 repository = "https://github.com/child404/text-matcher-rs.git"
 
 [lib]
-name = "text-matcher-rs"
+name = "street-sim-rs"
 crate-type = ["cdylib"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

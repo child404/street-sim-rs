@@ -1,2 +1,2 @@
 # Introduction
-Python bindings to text_matcher_rs library
+Python bindings to street-sim-rs library

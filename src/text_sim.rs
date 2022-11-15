@@ -1,6 +1,6 @@
-//! This module creates API and algorithm of matching Candidates from file input.
+//! This module creates API and algorithm of matching candidates from file input.
 //! Candidates in file should be separated by newline
-use crate::candidate::{Candidate, Candidates, Sens, SimResult, Text};
+use crate::candidate::{self as cand, Candidate, Sens, SimResult, Text};
 use std::{
     fs::File,
     io::{prelude::*, BufReader},
@@ -76,11 +76,11 @@ impl From<SimAlgo> for SimFunc {
 }
 
 #[inline]
-fn cmp_texts(target: &Text, candidate: &Text, config: &Config) -> Option<Candidate> {
+fn cmp_texts(target: &Text, candidate: Text, config: &Config) -> Option<Candidate> {
     let similarity = (config.sim_func)(&target.cleaned, &candidate.cleaned);
     if similarity - config.sens.0 > 0.0 {
         Some(Candidate {
-            text: candidate.init.to_owned(),
+            text: candidate.init,
             similarity,
         })
     } else {
@@ -90,10 +90,10 @@ fn cmp_texts(target: &Text, candidate: &Text, config: &Config) -> Option<Candida
 
 #[inline]
 pub fn cmp_with_arr(candidates: &[String], text: &Text, cfg: &Config) -> SimResult {
-    Candidates::from(
+    cand::try_sort_and_keep(
         &mut candidates
             .iter()
-            .flat_map(|candidate| cmp_texts(text, &Text::new(candidate), cfg))
+            .flat_map(|candidate| cmp_texts(text, Text::new(candidate.to_string()), cfg))
             .collect(),
         cfg.num_to_keep,
     )
@@ -112,17 +112,17 @@ pub fn fast_cmp_with_file(text: &Text, file: &Path, cfg: &Config) -> SimResult {
     for chunk in lines.chunks(lines.len() / cfg.num_of_threads + 1) {
         let candidates = matches.clone();
         let chunk = chunk.to_vec();
-        let text = text.to_owned();
+        let text = text.clone();
         let cfg = cfg.clone();
         pool.execute(move || {
             for candidate in cmp_with_arr(&chunk, &text, &cfg).unwrap_or_default() {
-                candidates.lock().unwrap().push(candidate.to_owned());
+                candidates.lock().unwrap().push(candidate);
             }
         });
     }
     pool.join();
     let mut matches = matches.lock().unwrap();
-    Candidates::from(&mut matches, cfg.num_to_keep)
+    cand::try_sort_and_keep(&mut matches, cfg.num_to_keep)
 }
 
 /// Search through file for candidates each on new line
@@ -130,7 +130,7 @@ pub fn fast_cmp_with_file(text: &Text, file: &Path, cfg: &Config) -> SimResult {
 /// # Examples
 ///
 /// ```rust
-/// # use text_matcher_rs::{text_sim, Sens, SimAlgo, Text, Config};
+/// # use street_sim_rs::{text_sim, Sens, SimAlgo, Text, Config};
 /// # use std::path::PathBuf;
 /// #
 /// # fn main() {
@@ -146,11 +146,11 @@ pub fn fast_cmp_with_file(text: &Text, file: &Path, cfg: &Config) -> SimResult {
 /// If this function encounteres any problem with reading the file, an error variant will be returned
 #[inline]
 pub fn cmp_with_file(text: &Text, file: &Path, cfg: &Config) -> SimResult {
-    Candidates::from(
+    cand::try_sort_and_keep(
         &mut BufReader::new(File::open(file)?)
             .lines()
             .flatten()
-            .flat_map(|candidate| cmp_texts(text, &Text::new(&candidate), cfg))
+            .flat_map(|candidate| cmp_texts(text, Text::new(candidate), cfg))
             .collect(),
         cfg.num_to_keep,
     )
@@ -167,7 +167,7 @@ mod tests {
     fn find_in_file() {
         let cfg = Config::new(Sens::new(0.5), 1, SimAlgo::default(), None);
         let mat = cmp_with_file(
-            &Text::new("qu du seujet 36"),
+            &Text::new("qu du seujet 36".to_string()),
             &PathBuf::from(DATA_FILE),
             &cfg,
         )
@@ -179,7 +179,7 @@ mod tests {
     fn fast_find_in_file() {
         let cfg = Config::new(Sens::new(0.5), 1, SimAlgo::default(), None);
         let matches = fast_cmp_with_file(
-            &Text::new("qu du seujet 36"),
+            &Text::new("qu du seujet 36".to_string()),
             &PathBuf::from(DATA_FILE),
             &cfg,
         )
@@ -192,10 +192,10 @@ mod tests {
         let cfg = Config::new(Sens::new(0.5), 1, SimAlgo::JaroWinkler, None);
         let matches = cmp_with_arr(
             &["foobar", "foa", "2foo", "abcd"]
-                .iter()
+                .into_iter()
                 .map(|s| s.to_string())
                 .collect::<Vec<String>>(),
-            &Text::new("foo"),
+            &Text::new("foo".to_string()),
             &cfg,
         )
         .unwrap();

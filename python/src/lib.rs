@@ -60,7 +60,7 @@ fn find_street(sens: f64, street: &str, loc: Option<PyLocation>) -> PyCandidate 
 }
 
 #[pymodule]
-fn text_matcher_rs(_py: Python, m: &PyModule) -> PyResult<()> {
+fn street_sim_rs(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add_function(wrap_pyfunction!(find_street, m)?)?;
     m.add_class::<PyCandidate>()?;
