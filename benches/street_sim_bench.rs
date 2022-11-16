@@ -13,8 +13,7 @@ fn bench_street_matcher(c: &mut Criterion) {
         b.iter(|| {
             street_sim::find_matches::<Plz>(
                 black_box(&Street::new("Mühlematt 7-11 (Emmenbrücke)", None).unwrap()),
-                black_box(None),
-                black_box(None),
+                black_box(StreetConfig::default()),
             )
             .unwrap();
         })
@@ -49,8 +48,7 @@ fn bench_street_matcher(c: &mut Criterion) {
         b.iter(|| {
             street_sim::find_matches(
                 black_box(&Street::new("ch de saint-cierges 3", None).unwrap()),
-                black_box(Some(Place::new("bercher"))),
-                black_box(None),
+                black_box(StreetConfig::from(Place::new("bercher"))),
             )
         })
     });
@@ -58,8 +56,7 @@ fn bench_street_matcher(c: &mut Criterion) {
         b.iter(|| {
             street_sim::find_matches(
                 black_box(&Street::new("qu du seujet 36", None).unwrap()),
-                black_box(Some(Plz::new(1201))),
-                black_box(None),
+                black_box(StreetConfig::from(Plz::new(1201))),
             )
         })
     });
@@ -67,8 +64,7 @@ fn bench_street_matcher(c: &mut Criterion) {
         b.iter(|| {
             street_sim::find_matches::<Plz>(
                 black_box(&Street::new("qu du seujet 36", None).unwrap()),
-                black_box(None),
-                black_box(None),
+                black_box(StreetConfig::default()),
             )
         })
     });
@@ -76,8 +72,7 @@ fn bench_street_matcher(c: &mut Criterion) {
         b.iter(|| {
             street_sim::find_matches::<Plz>(
                 black_box(&Street::new("uai du seujet 36", None).unwrap()),
-                black_box(None),
-                black_box(None),
+                black_box(StreetConfig::default()),
             )
         })
     });

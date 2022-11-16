@@ -7,5 +7,5 @@ pub mod street_sim;
 pub mod text_sim;
 
 pub use candidate::{Candidate, Sens, Text};
-pub use street_sim::{Place, Plz, Street};
+pub use street_sim::{Place, Plz, Street, StreetConfig};
 pub use text_sim::{Config, SimAlgo};

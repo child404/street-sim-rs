@@ -12,10 +12,21 @@ use threadpool::ThreadPool;
 
 #[derive(Clone)]
 pub struct Config {
-    sens: Sens,
-    num_to_keep: usize,
-    sim_func: SimFunc,
-    num_of_threads: usize,
+    pub sens: Sens,
+    pub num_to_keep: usize,
+    pub sim_func: SimFunc,
+    pub num_of_threads: usize,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            sens: Sens::default(),
+            num_to_keep: 1,
+            sim_func: SimAlgo::default().into(),
+            num_of_threads: thread::available_parallelism().unwrap().get(),
+        }
+    }
 }
 
 impl Config {

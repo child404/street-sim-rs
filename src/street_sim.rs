@@ -1,15 +1,16 @@
 //! This module provides matching on official Switzerland streets
 
 use crate::{
-    candidate::{Candidate, Sens, SimResult, Text},
+    candidate::{Candidate, Error as CandidateError, Sens, SimResult, Text},
     text_sim::{self, Config, SimAlgo},
 };
 
 use regex::Regex;
-use std::{fs, io, path::PathBuf};
+use std::{fs, io, path::PathBuf, process};
 use toml::Value;
 
 const PLACE_SENS: f64 = 0.6;
+const NUM_TO_KEEP_FILTERED: usize = 500;
 const PATH_TO_PLACES: &str = "./test_data/places.txt";
 const PATH_TO_STREET_NAMES: &str = "./test_data/streets_data/street_names.txt";
 const PATH_TO_STREETS_DATA: &str = "./test_data/streets_data";
@@ -52,27 +53,55 @@ impl Plz {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[inline]
+fn filter_distant_streets(street: &Text, cfg: &Config) -> Vec<String> {
+    text_sim::fast_cmp_with_file(street, &PathBuf::from(PATH_TO_STREET_NAMES), cfg)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|c| c.text)
+        .collect()
+}
+
+#[inline]
+fn find_street_name(street: &Text, cfg: &Config) -> SimResult {
+    let cfg_for_filter = Config {
+        num_to_keep: NUM_TO_KEEP_FILTERED,
+        sim_func: SimAlgo::Jaro.into(),
+        ..*cfg
+    };
+    text_sim::cmp_with_arr(
+        &filter_distant_streets(street, &cfg_for_filter),
+        street,
+        cfg,
+    )
+}
+
+#[derive(Debug)]
 pub struct Street {
     pub value: Text,
-    pub street_name: String,
+    pub file: StreetFile,
+}
+
+impl PartialEq for Street {
+    fn eq(&self, other: &Self) -> bool {
+        self.value.eq(&other.value)
+    }
 }
 
 impl Street {
-    pub fn new(street: &str, sens: Option<Sens>) -> Option<Self> {
+    pub fn new(street: &str, cfg: Option<Config>) -> Result<Self, CandidateError> {
         if !Self::contains_numbers(street) {
-            panic!(
+            eprintln!(
                 "Argument 'street' must contain street number! Got: '{}'",
                 street
             );
+            process::exit(1);
         }
         let street = Text::new(Self::clean(street));
-        find_street_name(&street, sens.unwrap_or_default())
-            .ok()
-            .map(|candidates| Self {
-                value: street,
-                street_name: candidates[0].text.to_owned(),
-            })
+        Ok(Self {
+            file: StreetFile::new(&find_street_name(&street, &cfg.unwrap_or_default())?[0].text)?,
+            value: street,
+        })
     }
 
     #[inline]
@@ -108,35 +137,17 @@ impl Street {
     }
 }
 
-#[inline]
-fn find_street_name(street: &Text, sens: Sens) -> SimResult {
-    let cfg = Config::new(sens, 1, SimAlgo::Levenshtein, None);
-    text_sim::cmp_with_arr(&filter_distant_streets(street, sens), street, &cfg)
-}
-
-#[inline]
-fn filter_distant_streets(street: &Text, sens: Sens) -> Vec<String> {
-    let cfg = Config::new(sens, 500, SimAlgo::Jaro, None);
-    text_sim::fast_cmp_with_file(street, &PathBuf::from(PATH_TO_STREET_NAMES), &cfg)
-        .unwrap_or_default()
-        .into_iter()
-        .map(|c| c.text)
-        .collect()
-}
-
-type ValuesByLocation<T> = (Vec<String>, Option<T>);
-type CandidateByLocation<T> = (Option<Candidate>, Option<T>);
-
-struct StreetFile {
+#[derive(Debug)]
+pub struct StreetFile {
     values: Value,
 }
 
 impl StreetFile {
-    pub fn new(street: &Street) -> io::Result<Self> {
+    pub fn new(street_name: &str) -> io::Result<Self> {
         let filename = format!(
             "{}/{}.toml",
             PATH_TO_STREETS_DATA,
-            street.street_name.replace('/', "%2C")
+            street_name.replace('/', "%2C")
         );
         Ok(Self {
             values: toml::from_str::<Value>(&fs::read_to_string(filename)?)?,
@@ -144,7 +155,7 @@ impl StreetFile {
     }
 
     #[inline]
-    fn string_iter_from(value: &Value) -> impl Iterator<Item = String> + '_ {
+    fn iter_over_strings_from(value: &Value) -> impl Iterator<Item = String> + '_ {
         value
             .as_array()
             .unwrap()
@@ -159,37 +170,53 @@ impl StreetFile {
             .as_table()
             .expect("correct table structure")
             .iter()
-            .flat_map(|(_, v)| Self::string_iter_from(v))
+            .flat_map(|(_, v)| Self::iter_over_strings_from(v))
             .collect::<Vec<String>>();
         values.sort();
         values.dedup();
         values
     }
 
-    fn try_get_values_by<T>(&self, location: T) -> ValuesByLocation<T>
+    fn get_values_by<T>(&self, location: Option<&T>) -> (Vec<String>, bool)
     where
         T: ToString,
     {
-        self.values.get(&location.to_string()).map_or_else(
-            || (self.get_all_values(), None),
-            |v| (Self::string_iter_from(v).collect(), Some(location)),
-        )
+        if let Some(location) = location {
+            if let Some(v) = self.values.get(&location.to_string()) {
+                return (Self::iter_over_strings_from(v).collect(), true);
+            }
+        }
+        (self.get_all_values(), false)
     }
 }
 
-#[inline]
-fn cmp_with_arr<T>(
-    arr: &[String],
-    street: &Street,
-    cfg: &Config,
+pub struct StreetConfig<T> {
     location: Option<T>,
-) -> CandidateByLocation<T>
-where
-    T: ToString,
-{
-    match text_sim::cmp_with_arr(arr, &street.value, cfg) {
-        Ok(mat) => (Some(mat[0].to_owned()), location),
-        Err(_) => (None, None),
+    cfg: Config,
+}
+
+impl<T> Default for StreetConfig<T> {
+    fn default() -> Self {
+        Self {
+            location: None,
+            cfg: Config::default(),
+        }
+    }
+}
+
+impl<T> StreetConfig<T> {
+    pub fn new(location: Option<T>, sens: f64, num_to_keep: usize, algo: SimAlgo) -> Self {
+        Self {
+            location,
+            cfg: Config::new(Sens::new(sens), num_to_keep, algo, None),
+        }
+    }
+
+    pub fn from(location: T) -> Self {
+        Self {
+            location: Some(location),
+            cfg: Config::default(),
+        }
     }
 }
 
@@ -234,19 +261,21 @@ where
 /// Panics if `street` does not contain a number (as each valid street MUST contain an any number)
 pub fn find_matches<T>(
     street: &Street,
-    location: Option<T>,
-    sens: Option<Sens>,
-) -> io::Result<CandidateByLocation<T>>
+    street_cfg: StreetConfig<T>,
+) -> io::Result<(Option<Candidate>, Option<T>)>
 where
     T: ToString,
 {
-    let cfg = Config::new(sens.unwrap_or_default(), 1, SimAlgo::default(), None);
-    let sfile = StreetFile::new(street)?;
-    Ok(location.map_or_else(
-        || cmp_with_arr(&sfile.get_all_values(), street, &cfg, None),
-        |location| {
-            let (streets_to_match, location) = sfile.try_get_values_by(location);
-            cmp_with_arr(&streets_to_match, street, &cfg, location)
+    let (street_candidates, is_found_in_loc) =
+        street.file.get_values_by(street_cfg.location.as_ref());
+    Ok((
+        text_sim::cmp_with_arr(&street_candidates, &street.value, &street_cfg.cfg)
+            .ok()
+            .map(|mat| mat[0].clone()),
+        if is_found_in_loc {
+            street_cfg.location
+        } else {
+            None
         },
     ))
 }
@@ -263,7 +292,12 @@ mod tests {
     fn max_sensitivity() {
         // Some random string in the input
         let street = "FdsfdsfsdfssFSDfdsfsdfsBernstrasse 7";
-        assert_eq!(Street::new(street, None), None);
+        let street = Street::new(street, None);
+        assert!(
+            matches!(street, Err(_)),
+            "Expected NotFound error, but the value was {:?}",
+            street
+        );
     }
 
     #[test]
@@ -281,8 +315,7 @@ mod tests {
     fn no_numbers_in_street_plz() {
         find_matches::<Plz>(
             &Street::new(STREET_WITHOUT_NUMBERS, None).unwrap(),
-            None,
-            None,
+            StreetConfig::default(),
         )
         .unwrap();
     }
@@ -313,8 +346,7 @@ mod tests {
         assert_eq!(
             find_matches(
                 &Street::new("ch de saint-cierges 3", None).unwrap(),
-                Some(location.to_owned()),
-                None
+                StreetConfig::from(location.to_owned()),
             )
             .unwrap(),
             (
@@ -329,8 +361,7 @@ mod tests {
     fn match_without_place() {
         let mat = find_matches::<Place>(
             &Street::new("ch de saint-cierges 3", None).unwrap(),
-            None,
-            None,
+            StreetConfig::default(),
         );
         assert_eq!(
             mat.unwrap(),
@@ -343,8 +374,7 @@ mod tests {
         let location = Plz::new(1201);
         let mat = find_matches(
             &Street::new("qu du seujet 36", None).unwrap(),
-            Some(location.to_owned()),
-            None,
+            StreetConfig::from(location.to_owned()),
         );
         assert_eq!(
             mat.unwrap(),
@@ -355,7 +385,10 @@ mod tests {
     #[test]
     #[ignore]
     fn match_without_plz() {
-        let mat = find_matches::<Plz>(&Street::new("qu du seujet 36", None).unwrap(), None, None);
+        let mat = find_matches::<Plz>(
+            &Street::new("qu du seujet 36", None).unwrap(),
+            StreetConfig::default(),
+        );
         assert_eq!(
             mat.unwrap(),
             (Some(Candidate::from("quai du seujet 36")), None)
@@ -367,8 +400,7 @@ mod tests {
     fn match_with_wrong_plz() {
         let mat = find_matches(
             &Street::new("qu du seujet 36", None).unwrap(),
-            Some(Plz::new(1231231)),
-            None,
+            StreetConfig::from(Plz::new(1231231)),
         );
         assert_eq!(
             mat.unwrap(),
@@ -382,8 +414,7 @@ mod tests {
         let location = Plz::new(1201);
         let mat = find_matches(
             &Street::new("uai du seujet 36", None).unwrap(),
-            Some(location.to_owned()),
-            None,
+            StreetConfig::from(location.to_owned()),
         );
         assert_eq!(
             mat.unwrap(),
@@ -394,7 +425,10 @@ mod tests {
     #[test]
     #[ignore]
     fn match_with_wrong_first_word_no_plz() {
-        let mat = find_matches::<Plz>(&Street::new("uai du seujet 36", None).unwrap(), None, None);
+        let mat = find_matches::<Plz>(
+            &Street::new("uai du seujet 36", None).unwrap(),
+            StreetConfig::default(),
+        );
         assert_eq!(
             mat.unwrap(),
             (Some(Candidate::from("quai du seujet 36")), None)
@@ -407,8 +441,7 @@ mod tests {
         let location = Plz::new(2132131);
         let mat = find_matches(
             &Street::new("uai du seujet 36", None).unwrap(),
-            Some(location),
-            None,
+            StreetConfig::from(location),
         );
         assert_eq!(
             mat.unwrap(),

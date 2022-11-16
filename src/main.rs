@@ -12,7 +12,9 @@ use std::{
     fs::File,
     io::{prelude::*, BufReader},
 };
-use street_sim::Street;
+use street_sim::{Street, StreetConfig};
+
+use crate::text_sim::Config;
 
 const CHUNK_SIZE: usize = 1000;
 
@@ -88,7 +90,7 @@ fn main() {
     for street in streets {
         let street = Street::new(street, None).unwrap();
         println!("{:?}", &street.value);
-        let mat = street_sim::find_matches::<Plz>(&street, None, None);
+        let mat = street_sim::find_matches::<Plz>(&street, StreetConfig::<Plz>::default());
         println!("{:?}", mat);
     }
     // let reader = BufReader::new(File::open("./test_data/real_data.csv").expect("file exists"));

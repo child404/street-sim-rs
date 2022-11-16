@@ -2,7 +2,7 @@
 use std::{
     cmp,
     cmp::{Ordering, PartialEq},
-    fmt, io,
+    fmt, io, process,
 };
 
 pub(crate) const PUNCTUATIONS: &[char] = &[
@@ -54,16 +54,18 @@ pub struct Sens(pub f64);
 impl Sens {
     pub fn new(sens: f64) -> Self {
         if 1.0 - sens < 0.0 {
-            panic!(
+            eprintln!(
                 "sensitivity should be lower or equal than 1.0, but the value was {}",
                 sens
             );
+            process::exit(1);
         }
         if sens - 1e-10 < 0.0 {
-            panic!(
+            eprintln!(
                 "sensitivity should be larger or equal than 0.0, but the value was {}",
                 sens
             );
+            process::exit(1);
         }
         Self(sens)
     }
