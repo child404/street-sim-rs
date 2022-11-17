@@ -10,7 +10,8 @@ use std::{fs, io, path::PathBuf, process};
 use toml::Value;
 
 const PLACE_SENS: f64 = 0.6;
-const NUM_TO_KEEP_FILTERED: usize = 500;
+const NUM_TO_KEEP_FILTERED_STREETS: usize = 500;
+const ALGO_TO_FILTER_STREETS: SimAlgo = SimAlgo::Jaro;
 const PATH_TO_PLACES: &str = "./test_data/places.txt";
 const PATH_TO_STREET_NAMES: &str = "./test_data/streets_data/street_names.txt";
 const PATH_TO_STREETS_DATA: &str = "./test_data/streets_data";
@@ -64,17 +65,30 @@ fn filter_distant_streets(street: &Text, cfg: &Config) -> Vec<String> {
 
 #[inline]
 fn find_street_name(street: &Text, cfg: &Config) -> SimResult {
-    let cfg_for_filter = Config {
-        num_to_keep: NUM_TO_KEEP_FILTERED,
-        sim_func: SimAlgo::Jaro.into(),
+    let filter_cfg = Config {
+        num_to_keep: NUM_TO_KEEP_FILTERED_STREETS,
+        sim_func: ALGO_TO_FILTER_STREETS.into(),
         ..*cfg
     };
-    text_sim::cmp_with_arr(
-        &filter_distant_streets(street, &cfg_for_filter),
-        street,
-        cfg,
-    )
+    text_sim::cmp_with_arr(&filter_distant_streets(street, &filter_cfg), street, cfg)
 }
+
+// #[derive(Debug)]
+// pub enum Error {
+//     Io(io::Error),
+//     CError(CandidateError),
+//     DoesNotContainNumbers,
+// }
+
+// impl fmt::Display for Error {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         match self {
+//             Self::CError(err) => f.write_str(&err.to_string()),
+//             Self::Io(err) => f.write_str(&err.to_string()),
+//             Self::DoesNotContainNumbers => f.write_str("DoesNotContainNumbers"),
+//         }
+//     }
+// }
 
 #[derive(Debug)]
 pub struct Street {
@@ -90,6 +104,7 @@ impl PartialEq for Street {
 
 impl Street {
     pub fn new(street: &str, cfg: Option<Config>) -> Result<Self, CandidateError> {
+        // TODO: add here Error spreading instead of exiting
         if !Self::contains_numbers(street) {
             eprintln!(
                 "Argument 'street' must contain street number! Got: '{}'",
@@ -164,7 +179,7 @@ impl StreetFile {
     }
 
     #[inline]
-    fn get_all_values(&self) -> Vec<String> {
+    fn get_all_streets(&self) -> Vec<String> {
         let mut values = self
             .values
             .as_table()
@@ -177,7 +192,7 @@ impl StreetFile {
         values
     }
 
-    fn get_values_by<T>(&self, location: Option<&T>) -> (Vec<String>, bool)
+    fn get_streets_by<T>(&self, location: Option<&T>) -> (Vec<String>, bool)
     where
         T: ToString,
     {
@@ -186,7 +201,7 @@ impl StreetFile {
                 return (Self::iter_over_strings_from(v).collect(), true);
             }
         }
-        (self.get_all_values(), false)
+        (self.get_all_streets(), false)
     }
 }
 
@@ -212,7 +227,7 @@ impl<T> StreetConfig<T> {
         }
     }
 
-    pub fn from(location: T) -> Self {
+    pub fn default_with(location: T) -> Self {
         Self {
             location: Some(location),
             cfg: Config::default(),
@@ -267,7 +282,7 @@ where
     T: ToString,
 {
     let (street_candidates, is_found_in_loc) =
-        street.file.get_values_by(street_cfg.location.as_ref());
+        street.file.get_streets_by(street_cfg.location.as_ref());
     Ok((
         text_sim::cmp_with_arr(&street_candidates, &street.value, &street_cfg.cfg)
             .ok()
@@ -346,7 +361,7 @@ mod tests {
         assert_eq!(
             find_matches(
                 &Street::new("ch de saint-cierges 3", None).unwrap(),
-                StreetConfig::from(location.to_owned()),
+                StreetConfig::default_with(location.to_owned()),
             )
             .unwrap(),
             (
@@ -374,7 +389,7 @@ mod tests {
         let location = Plz::new(1201);
         let mat = find_matches(
             &Street::new("qu du seujet 36", None).unwrap(),
-            StreetConfig::from(location.to_owned()),
+            StreetConfig::default_with(location.to_owned()),
         );
         assert_eq!(
             mat.unwrap(),
@@ -400,7 +415,7 @@ mod tests {
     fn match_with_wrong_plz() {
         let mat = find_matches(
             &Street::new("qu du seujet 36", None).unwrap(),
-            StreetConfig::from(Plz::new(1231231)),
+            StreetConfig::default_with(Plz::new(1231231)),
         );
         assert_eq!(
             mat.unwrap(),
@@ -414,7 +429,7 @@ mod tests {
         let location = Plz::new(1201);
         let mat = find_matches(
             &Street::new("uai du seujet 36", None).unwrap(),
-            StreetConfig::from(location.to_owned()),
+            StreetConfig::default_with(location.to_owned()),
         );
         assert_eq!(
             mat.unwrap(),
@@ -441,7 +456,7 @@ mod tests {
         let location = Plz::new(2132131);
         let mat = find_matches(
             &Street::new("uai du seujet 36", None).unwrap(),
-            StreetConfig::from(location),
+            StreetConfig::default_with(location),
         );
         assert_eq!(
             mat.unwrap(),

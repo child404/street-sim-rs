@@ -1,6 +1,6 @@
 //! This module creates API and algorithm of matching candidates from file input.
 //! Candidates in file should be separated by newline
-use crate::candidate::{self as cand, Candidate, Sens, SimResult, Text};
+use crate::candidate::{self, Candidate, Sens, SimResult, Text};
 use std::{
     fs::File,
     io::{prelude::*, BufReader},
@@ -52,7 +52,7 @@ impl Config {
     }
 }
 
-type SimFunc = fn(&str, &str) -> f64;
+pub(crate) type SimFunc = fn(&str, &str) -> f64;
 
 #[derive(Clone, Copy)]
 pub enum SimAlgo {
@@ -101,7 +101,7 @@ fn cmp_texts(target: &Text, candidate: Text, config: &Config) -> Option<Candidat
 
 #[inline]
 pub fn cmp_with_arr(candidates: &[String], text: &Text, cfg: &Config) -> SimResult {
-    cand::try_sort_and_keep(
+    candidate::try_sort_and_keep(
         &mut candidates
             .iter()
             .flat_map(|candidate| cmp_texts(text, Text::new(candidate.to_string()), cfg))
@@ -133,7 +133,7 @@ pub fn fast_cmp_with_file(text: &Text, file: &Path, cfg: &Config) -> SimResult {
     }
     pool.join();
     let mut matches = matches.lock().unwrap();
-    cand::try_sort_and_keep(&mut matches, cfg.num_to_keep)
+    candidate::try_sort_and_keep(&mut matches, cfg.num_to_keep)
 }
 
 /// Search through file for candidates each on new line
@@ -157,7 +157,7 @@ pub fn fast_cmp_with_file(text: &Text, file: &Path, cfg: &Config) -> SimResult {
 /// If this function encounteres any problem with reading the file, an error variant will be returned
 #[inline]
 pub fn cmp_with_file(text: &Text, file: &Path, cfg: &Config) -> SimResult {
-    cand::try_sort_and_keep(
+    candidate::try_sort_and_keep(
         &mut BufReader::new(File::open(file)?)
             .lines()
             .flatten()

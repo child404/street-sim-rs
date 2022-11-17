@@ -2,6 +2,7 @@
 use std::{
     cmp,
     cmp::{Ordering, PartialEq},
+    error::Error as StdError,
     fmt, io, process,
 };
 
@@ -27,6 +28,21 @@ impl fmt::Display for Error {
     }
 }
 
+impl StdError for Error {
+    fn description(&self) -> &str {
+        match *self {
+            Error::Io(_) => "Io Error",
+            Error::NotFound => "Candidate Not Found",
+        }
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Self {
+        Self::Io(err)
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Text {
     pub init: String,
@@ -42,12 +58,6 @@ impl Text {
     }
 }
 
-impl From<io::Error> for Error {
-    fn from(err: io::Error) -> Self {
-        Self::Io(err)
-    }
-}
-
 #[derive(Clone, Copy)]
 pub struct Sens(pub f64);
 
@@ -55,14 +65,14 @@ impl Sens {
     pub fn new(sens: f64) -> Self {
         if 1.0 - sens < 0.0 {
             eprintln!(
-                "sensitivity should be lower or equal than 1.0, but the value was {}",
+                "Sensitivity should be lower or equal than 1.0, but the value was {}",
                 sens
             );
             process::exit(1);
         }
         if sens - 1e-10 < 0.0 {
             eprintln!(
-                "sensitivity should be larger or equal than 0.0, but the value was {}",
+                "Sensitivity should be larger or equal than 0.0, but the value was {}",
                 sens
             );
             process::exit(1);

@@ -48,7 +48,7 @@ fn bench_street_matcher(c: &mut Criterion) {
         b.iter(|| {
             street_sim::find_matches(
                 black_box(&Street::new("ch de saint-cierges 3", None).unwrap()),
-                black_box(StreetConfig::from(Place::new("bercher"))),
+                black_box(StreetConfig::default_with(Place::new("bercher"))),
             )
         })
     });
@@ -56,7 +56,7 @@ fn bench_street_matcher(c: &mut Criterion) {
         b.iter(|| {
             street_sim::find_matches(
                 black_box(&Street::new("qu du seujet 36", None).unwrap()),
-                black_box(StreetConfig::from(Plz::new(1201))),
+                black_box(StreetConfig::default_with(Plz::new(1201))),
             )
         })
     });
