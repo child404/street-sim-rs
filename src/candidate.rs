@@ -9,7 +9,7 @@ use std::{
 pub(crate) const PUNCTUATIONS: &[char] = &[
     '_', '\\', '(', ')', ',', '\"', '.', ';', ':', '\'', '-', '/', '+', '–', ' ',
 ];
-const SENS: f64 = 0.6;
+const SENS: f64 = 0.7;
 
 pub type SimResult = Result<Vec<Candidate>, Error>;
 

@@ -126,7 +126,12 @@ impl Street {
 
     #[inline]
     pub(crate) fn clean(street: &str) -> String {
-        let mut street = street.trim().to_owned();
+        let mut street = street
+            .trim()
+            .to_lowercase()
+            .replace("str.", "strasse")
+            .replace("av. ", "avenue ")
+            .replace("rt ", "route ");
         // Matches: '76 chemin des clos' or 'a4 résidence du golf'
         if Self::starts_with_number(&street) {
             let (num, street_name) = street.split_once(' ').expect("matched by regexp");
