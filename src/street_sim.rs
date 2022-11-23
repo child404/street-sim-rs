@@ -131,7 +131,9 @@ impl Street {
             .to_lowercase()
             .replace("str.", "strasse")
             .replace("av. ", "avenue ")
-            .replace("rt ", "route ");
+            .replace("rt ", "route ")
+            .replace("st.", "saint")
+            .replace("st-", "saint");
         // Matches: '76 chemin des clos' or 'a4 résidence du golf'
         if Self::starts_with_number(&street) {
             let (num, street_name) = street.split_once(' ').expect("matched by regexp");
