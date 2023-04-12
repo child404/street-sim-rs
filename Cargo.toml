@@ -20,7 +20,7 @@ path = "src/main.rs"
 
 [[bench]]
 name = "mass_bench"
-harness = false # TODO: add custom harness
+harness = false
 
 [dependencies]
 strsim = "0.10.0"
