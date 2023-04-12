@@ -470,4 +470,31 @@ mod tests {
             (Some(Candidate::from("quai du seujet 36")), None)
         );
     }
+
+    #[test]
+    fn match_wil_place() {
+        let location = Place::new("Wil SG");
+        let mat = find_matches(
+            &Street::new("Zürcherstrasse 3", None).unwrap(),
+            StreetConfig::default_with(location),
+        );
+        assert_eq!(
+            mat.unwrap(),
+            (Some(Candidate::from("zürcherstrasse 3")), None)
+        );
+    }
+
+    #[test]
+    fn match_pfaffikon_place() {
+        let location = Place::new("Pfäffikon");
+        let mat = find_matches(
+            &Street::new("Rigistrasse 10", None).unwrap(),
+            StreetConfig::default_with(location.clone()),
+        );
+        assert_eq!(
+            mat.unwrap(),
+            (Some(Candidate::from("rigistrasse 10")), None)
+        );
+        assert_eq!(location.to_string(), String::from("Pfäffikon ZG"));
+    }
 }
