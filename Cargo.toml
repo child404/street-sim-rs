@@ -1,25 +1,25 @@
 [package]
-name = "street-sim-rs"
+name = "mass-rs"
 version = "0.1.0"
-authors = ["child404 <vladrez1703@gmail.com>"]
+authors = ["Vladyslav Rezohlazov <vladyslav.rezohlazov@novalytica.com>"]
 edition = "2021"
 license = "MIT"
-description = "The library to match candidate text (especially Swiss streets) from file input"
-keywords = ["text-matcher-rs", "nlp", "street-processing", "text-processing"]
+description = "The library to Match Swiss Streets"
+keywords = ["mass-rs", "nlp", "street-processing", "text-processing"]
 categories = ["text-processing"]
 readme = "README.md"
-repository = "https://github.com/child404/text-matcher-rs"
+repository = "https://github.com/Novalytica/mass-rs"
 
 [lib]
-name = "street_sim_rs"
+name = "mass-rs"
 path = "src/lib.rs"
 
 [[bin]]
-name = "tm_rs"
+name = "mass"
 path = "src/main.rs"
 
 [[bench]]
-name = "street_sim_bench"
+name = "mass_bench"
 harness = false # TODO: add custom harness
 
 [dependencies]

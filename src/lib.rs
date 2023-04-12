@@ -3,9 +3,9 @@
 //!
 //! It serves as my first Rust project used for work and published out to the people
 mod candidate;
-pub mod street_sim;
+pub mod mass;
 pub mod text_sim;
 
 pub use candidate::{Candidate, Sens, Text};
-pub use street_sim::{Place, Plz, Street, StreetConfig};
+pub use mass::{Place, Plz, Street, StreetConfig};
 pub use text_sim::{Config, SimAlgo};
